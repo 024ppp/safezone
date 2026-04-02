@@ -96,7 +96,7 @@
 <body>
 
 <div id="entry-screen">
-  <button id="entry-button" ontouchstart="initSystem()">静寂に入る</button>
+  <button id="entry-button" >静寂に入る</button>
 </div>
 
 <div id="main-app">
@@ -140,6 +140,10 @@
   let timerInterval;
   let isGyroLevel = false, isGyroActive = false, gyroPenaltyTimeout;
 
+  // --- 初期化イベントの登録 ---
+  // ontouchstartではなく、確実なclickイベントとして登録する
+  document.getElementById('entry-button').addEventListener('click', initSystem);
+
   function initSystem() {
     document.getElementById('entry-button').disabled = true;
 
@@ -155,12 +159,14 @@
     gainNode.connect(audioCtx.destination);
     oscillator.start();
 
-    // ジャイロセンサーの権限要求（iOS 13+）
+    // ジャイロセンサーの権限要求（iOS 13+ 必須プロセス）
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
       DeviceOrientationEvent.requestPermission()
         .then(response => {
           if (response === 'granted') {
             window.addEventListener('deviceorientation', handleOrientation);
+          } else {
+            alert('ジャイロセンサーへのアクセスが拒否されました。設定を確認してください。');
           }
         })
         .catch(console.error);
