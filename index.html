@@ -28,23 +28,25 @@
     transition: background-color 1s ease;
   }
   
-  /* エントリー画面 */
   #entry-screen {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background-color: var(--bg-idle);
-    display: flex; justify-content: center; align-items: center;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
     z-index: 9999; transition: opacity 0.5s ease;
   }
   #entry-button {
     padding: 30px 60px; background: #1a202c; border: 2px solid var(--accent-color);
     color: #fff; font-size: 1.2rem; letter-spacing: 0.3em;
-    border-radius: 12px; -webkit-appearance: none;
+    border-radius: 12px; -webkit-appearance: none; margin-bottom: 20px;
+  }
+  #debug-button {
+    padding: 10px 20px; background: transparent; border: 1px solid #555;
+    color: #888; font-size: 0.8rem; letter-spacing: 0.1em;
+    border-radius: 6px; -webkit-appearance: none;
   }
 
-  /* メインコンテナ */
   #main-app { display: none; width: 100%; height: 100%; position: relative; }
   
-  /* フェーズ1：ホールド領域 */
   #hold-phase { width: 100%; height: 100%; position: absolute; }
   .touch-zone { position: absolute; top: 0; width: 50%; height: 100%; }
   #left-zone { left: 0; }
@@ -58,7 +60,6 @@
     background-color: rgba(74, 111, 165, 0.4); margin: 0 auto 40px; opacity: 0;
   }
   
-  /* フェーズ2：ジャイロ領域 */
   #gyro-phase {
     display: none; width: 100%; height: 100%; position: absolute;
     top: 0; left: 0; flex-direction: column; justify-content: center; align-items: center;
@@ -75,7 +76,6 @@
     box-shadow: 0 0 15px rgba(224, 240, 255, 0.5);
   }
   
-  /* 共通UI */
   .status-text { font-size: 1.1rem; letter-spacing: 0.1em; line-height: 1.8; text-align: center; }
   .timer-display { font-size: 3.5rem; margin-top: 10px; font-family: monospace; opacity: 0; }
   
@@ -96,7 +96,8 @@
 <body>
 
 <div id="entry-screen">
-  <button id="entry-button" >静寂に入る</button>
+  <button id="entry-button">静寂に入る</button>
+  <button id="debug-button">[DEBUG] ジャイロ直行</button>
 </div>
 
 <div id="main-app">
@@ -126,31 +127,28 @@
 <script>
   let audioCtx, oscillator, gainNode;
   
-  // 音声ファイルの定義
   const voiceBreathe = new Audio('breathe.m4a');
   const voicePenalty = new Audio('penalty.m4a');
   const voiceStand = new Audio('stand.m4a');
   const voicePosture = new Audio('posture.m4a');
   const voiceComplete = new Audio('complete.m4a');
 
-  // 状態管理
-  let currentPhase = 0; // 0: エントリー, 1: 長押し, 2: ジャイロ, 3: 完了
+  let currentPhase = 0;
   let leftTouched = false, rightTouched = false, isHoldActive = false;
   let holdTimeRemaining = 30, gyroTimeRemaining = 20;
   let timerInterval;
-  let isGyroLevel = false, isGyroActive = false, gyroPenaltyTimeout;
+  let isGyroLevel = false, isGyroActive = false;
 
-  // --- 初期化イベントの登録 ---
-  // ontouchstartではなく、確実なclickイベントとして登録する
-  document.getElementById('entry-button').addEventListener('click', initSystem);
+  // ボタンイベントの登録（通常とデバッグ）
+  document.getElementById('entry-button').addEventListener('click', () => initSystem(false));
+  document.getElementById('debug-button').addEventListener('click', () => initSystem(true));
 
-  function initSystem() {
+  function initSystem(skipToGyro) {
     document.getElementById('entry-button').disabled = true;
+    document.getElementById('debug-button').disabled = true;
 
-    // 音声ロード
     [voiceBreathe, voicePenalty, voiceStand, voicePosture, voiceComplete].forEach(v => v.load());
 
-    // ドローン音起動
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     oscillator = audioCtx.createOscillator();
     gainNode = audioCtx.createGain();
@@ -159,7 +157,7 @@
     gainNode.connect(audioCtx.destination);
     oscillator.start();
 
-    // ジャイロセンサーの権限要求（iOS 13+ 必須プロセス）
+    // 権限要求は通常通り行う
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
       DeviceOrientationEvent.requestPermission()
         .then(response => {
@@ -174,23 +172,29 @@
       window.addEventListener('deviceorientation', handleOrientation);
     }
 
-    // 画面切り替え
     document.getElementById('entry-screen').style.opacity = '0';
     setTimeout(() => {
       document.getElementById('entry-screen').style.display = 'none';
       document.getElementById('main-app').style.display = 'block';
-      currentPhase = 1;
-      setupTouchEvents();
+      
+      if (skipToGyro) {
+        // デバッグモード：フェーズ1を非表示にしてフェーズ2を直起動
+        document.getElementById('hold-phase').style.display = 'none';
+        startGyroPhase();
+      } else {
+        // 通常モード：フェーズ1へ
+        currentPhase = 1;
+        setupTouchEvents();
+      }
     }, 500);
   }
 
-  // --- 音声再生ヘルパー ---
   function playVoice(audioElement) {
     audioElement.currentTime = 0;
     audioElement.play().catch(e => console.log(e));
   }
 
-  // --- タッチイベント（フェーズ1） ---
+  // --- フェーズ1 ---
   function setupTouchEvents() {
     window.addEventListener('touchstart', handleTouch, { passive: false });
     window.addEventListener('touchmove', handleTouch, { passive: false });
@@ -216,7 +220,6 @@
     }
   }
 
-  // --- フェーズ1：長押し制御 ---
   function startHoldPhase() {
     isHoldActive = true;
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -236,7 +239,7 @@
       updateTimerDisplay('timer', holdTimeRemaining);
       if (holdTimeRemaining <= 0) {
         clearInterval(timerInterval);
-        transitionToGyroPhase();
+        startGyroPhase();
       }
     }, 1000);
   }
@@ -259,8 +262,8 @@
     }, 3000);
   }
 
-  // --- フェーズ2への移行 ---
-  function transitionToGyroPhase() {
+  // --- フェーズ2 ---
+  function startGyroPhase() {
     currentPhase = 2;
     isHoldActive = false;
     document.getElementById('hold-phase').style.display = 'none';
@@ -268,6 +271,10 @@
     document.body.style.backgroundColor = 'var(--bg-gyro)';
     
     document.getElementById('gyro-timer').style.opacity = '1';
+    
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    gainNode.gain.setTargetAtTime(0.3, audioCtx.currentTime, 1.0);
+    
     playVoice(voiceStand);
     isGyroActive = true;
     
@@ -284,21 +291,18 @@
     }, 1000);
   }
 
-  // --- ジャイロセンサーイベント（フェーズ2） ---
   function handleOrientation(event) {
     if (currentPhase !== 2 || !isGyroActive) return;
 
-    let beta = event.beta || 0;   // 前後傾き [-180, 180]
-    let gamma = event.gamma || 0; // 左右傾き [-90, 90]
+    let beta = event.beta || 0;
+    let gamma = event.gamma || 0;
 
-    // 水平器のUI更新（玉を動かす）
     let y = Math.min(Math.max(beta, -45), 45);
     let x = Math.min(Math.max(gamma, -45), 45);
     let moveY = (y / 45) * 80;
     let moveX = (x / 45) * 80;
     document.getElementById('level-inner').style.transform = `translate(calc(-50% + ${moveX}px), calc(-50% + ${moveY}px))`;
 
-    // 許容範囲（±15度）に収まっているか判定
     if (Math.abs(beta) < 15 && Math.abs(gamma) < 15) {
       if (!isGyroLevel) {
         isGyroLevel = true;
