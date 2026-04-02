@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SafeZone">
+<title>SafeZone</title>
+<style>
+  :root {
+    --bg-idle: #080b12;
+    --bg-active: #030408;
+    --text-color: #d0d5e0;
+    --accent-color: #4a6fa5;
+  }
+  body, html {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background-color: var(--bg-idle);
+    color: var(--text-color);
+    font-family: -apple-system, sans-serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  
+  #entry-screen {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-color: var(--bg-idle);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    opacity: 1;
+    transition: opacity 0.5s ease;
+  }
+  #entry-button {
+    padding: 30px 60px;
+    background: #1a202c;
+    border: 2px solid var(--accent-color);
+    color: #fff;
+    font-size: 1.2rem;
+    letter-spacing: 0.3em;
+    border-radius: 12px;
+    -webkit-appearance: none;
+  }
+  #entry-button:active {
+    background: var(--accent-color);
+  }
+
+  #main-app {
+    display: none;
+    width: 100%; height: 100%;
+    position: relative;
+  }
+  .touch-zone {
+    position: absolute;
+    top: 0; width: 50%; height: 100%;
+  }
+  #left-zone { left: 0; }
+  #right-zone { right: 0; }
+
+  #center-ui {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+    width: 90%;
+  }
+  #breathing-circle {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background-color: rgba(74, 111, 165, 0.4);
+    margin: 0 auto 40px;
+    opacity: 0;
+  }
+  #status-text {
+    font-size: 1.1rem;
+    letter-spacing: 0.1em;
+    line-height: 1.8;
+  }
+  #timer {
+    font-size: 3rem;
+    margin-top: 20px;
+    opacity: 0;
+    font-family: monospace;
+  }
+  @keyframes breathe {
+    0% { transform: scale(0.6); opacity: 0.3; }
+    21% { transform: scale(1.4); opacity: 0.8; }
+    58% { transform: scale(1.4); opacity: 0.8; }
+    100% { transform: scale(0.6); opacity: 0.3; }
+  }
+  .is-breathing { animation: breathe 19s linear infinite; }
+  
+  #overlay-penalty {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: #000;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 5000;
+  }
+</style>
+</head>
+<body>
+
+<div id="entry-screen">
+  <button id="entry-button" ontouchstart="initSystem()">静寂に入る</button>
+</div>
+
+<div id="main-app">
+  <div id="left-zone" class="touch-zone"></div>
+  <div id="right-zone" class="touch-zone"></div>
+  <div id="center-ui">
+    <div id="breathing-circle"></div>
+    <div id="status-text">左右を長押しし、<br>静寂を維持しなさい</div>
+    <div id="timer">03:00</div>
+  </div>
+</div>
+
+<div id="overlay-penalty">
+  <div style="text-align:center">まだ波は去っていません。<br>もう一度、手を置きなさい</div>
+</div>
+
+<script>
+  let audioCtx, oscillator, gainNode;
+  let leftTouched = false, rightTouched = false, isActive = false;
+  let timeRemaining = 180, timerInterval;
+
+  // 音声ファイルの読み込み
+  const voiceStart = new Audio('start.m4a');
+  const voicePenalty = new Audio('penalty.m4a');
+  const voiceFinish = new Audio('finish.m4a');
+
+  function initSystem() {
+    document.getElementById('entry-button').disabled = true;
+
+    // iOSの音声再生制限を解除するためのロード処理
+    voiceStart.load();
+    voicePenalty.load();
+    voiceFinish.load();
+
+    // ドローン音の起動
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    oscillator = audioCtx.createOscillator();
+    gainNode = audioCtx.createGain();
+    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    oscillator.start();
+
+    document.getElementById('entry-screen').style.opacity = '0';
+    setTimeout(() => {
+      document.getElementById('entry-screen').style.display = 'none';
+      document.getElementById('main-app').style.display = 'block';
+      setupTouchEvents();
+    }, 500);
+  }
+
+  function setupTouchEvents() {
+    window.addEventListener('touchstart', handleTouch, { passive: false });
+    window.addEventListener('touchmove', handleTouch, { passive: false });
+    window.addEventListener('touchend', handleTouch, { passive: false });
+    window.addEventListener('touchcancel', handleTouch, { passive: false });
+  }
+
+  function handleTouch(e) {
+    if (e.cancelable) e.preventDefault();
+    leftTouched = false;
+    rightTouched = false;
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].clientX < window.innerWidth / 2) leftTouched = true;
+      else rightTouched = true;
+    }
+    checkStatus();
+  }
+
+  function checkStatus() {
+    if (leftTouched && rightTouched) {
+      if (!isActive) startMeditation();
+    } else {
+      if (isActive) failMeditation();
+    }
+  }
+
+  function playVoice(audioElement) {
+    audioElement.currentTime = 0;
+    audioElement.play().catch(e => console.log("音声再生エラー:", e));
+  }
+
+  function startMeditation() {
+    isActive = true;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    gainNode.gain.setTargetAtTime(0.4, audioCtx.currentTime, 1.5);
+    
+    document.getElementById('status-text').innerHTML = '呼吸に意識を向け、<br>波が過ぎるのを待ちなさい';
+    playVoice(voiceStart);
+
+    document.getElementById('timer').style.opacity = '1';
+    document.getElementById('breathing-circle').style.opacity = '1';
+    document.getElementById('breathing-circle').classList.add('is-breathing');
+    
+    startTimer();
+  }
+
+  function failMeditation() {
+    isActive = false;
+    gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+    clearInterval(timerInterval);
+    timeRemaining = 180;
+
+    document.getElementById('timer').style.opacity = '0';
+    document.getElementById('breathing-circle').style.opacity = '0';
+    document.getElementById('breathing-circle').classList.remove('is-breathing');
+    
+    const overlay = document.getElementById('overlay-penalty');
+    overlay.style.display = 'flex';
+    
+    playVoice(voicePenalty);
+
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      document.getElementById('status-text').innerHTML = '左右を長押しし、<br>静寂を維持しなさい';
+    }, 3000);
+  }
+
+  function startTimer() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timeRemaining--;
+      const m = String(Math.floor(timeRemaining / 60)).padStart(2, '0');
+      const s = String(timeRemaining % 60).padStart(2, '0');
+      document.getElementById('timer').innerText = `${m}:${s}`;
+      if (timeRemaining <= 0) {
+        clearInterval(timerInterval);
+        finishMeditation();
+      }
+    }, 1000);
+  }
+
+  function finishMeditation() {
+    isActive = false;
+    gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 1.0);
+    document.getElementById('status-text').innerHTML = '平静を取り戻しました。<br>本来の軌道へ戻りなさい';
+    playVoice(voiceFinish);
+  }
+</script>
+</body>
+</html>
