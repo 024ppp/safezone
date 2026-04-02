@@ -15,6 +15,9 @@ const colorVoices = {
   green: new Audio('green.m4a')
 };
 
+// 進行中の音声を追跡する変数
+let currentVoice = null;
+
 // 状態管理
 let currentPhase = 0; // 0: エントリー, 1: 長押し, 2: ジャイロ, 3: カメラ, 4: 完了
 let timerInterval;
@@ -81,9 +84,17 @@ function initSystem(mode) {
   }, 500);
 }
 
+// 音声再生関数を以下のように書き換えます
 function playVoice(audioElement) {
+  // すでに何かが再生中であれば、それを強制停止する
+  if (currentVoice && currentVoice !== audioElement) {
+    currentVoice.pause();
+    currentVoice.currentTime = 0;
+  }
+  
+  currentVoice = audioElement;
   audioElement.currentTime = 0;
-  audioElement.play().catch(e => console.log(e));
+  audioElement.play().catch(e => console.log("音声再生エラー:", e));
 }
 
 function updateTimerDisplay(elementId, seconds) {
