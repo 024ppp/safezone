@@ -43,7 +43,7 @@ let isGyroLevel = false, isGyroActive = false;
 let cameraStream = null;
 let targetColorType = '';
 let colorMatchFrames = 0;
-const REQUIRED_MATCH_FRAMES = 50; // 約1.5秒の継続認識
+const REQUIRED_MATCH_FRAMES = 150; // 約5秒の継続認識
 let isCameraActive = false;
 
 // イベントリスナー登録
@@ -324,14 +324,14 @@ function processVideoFrame() {
 
     // 色判定ロジック
     let isMatch = false;
-    const threshold = 30; // 色の優位性のしきい値
+    const threshold = 60; // 色の優位性のしきい値
 
     if (targetColorType === 'red') {
-      isMatch = (rAvg > gAvg + threshold) && (rAvg > bAvg + threshold) && (rAvg > 100);
+      isMatch = (rAvg > gAvg + threshold) && (rAvg > bAvg + threshold) && (rAvg > 130);
     } else if (targetColorType === 'blue') {
-      isMatch = (bAvg > rAvg + threshold) && (bAvg > gAvg + threshold) && (bAvg > 80);
+      isMatch = (bAvg > rAvg + threshold) && (bAvg > gAvg + threshold) && (bAvg > 120);
     } else if (targetColorType === 'green') {
-      isMatch = (gAvg > rAvg + threshold) && (gAvg > bAvg + threshold) && (gAvg > 80);
+      isMatch = (gAvg > rAvg + threshold) && (gAvg > bAvg + threshold) && (gAvg > 120);
     }
 
     if (isMatch) {
@@ -339,7 +339,7 @@ function processVideoFrame() {
       reticle.style.borderColor = 'var(--success-color)';
       reticle.style.transform = 'translate(-50%, -50%) scale(1.1)';
     } else {
-      colorMatchFrames = Math.max(0, colorMatchFrames - 2); // 外れたらゲージ減少
+      colorMatchFrames = Math.max(0, colorMatchFrames - 5); // 外れたらゲージ減少
       reticle.style.borderColor = 'rgba(255, 255, 255, 0.5)';
       reticle.style.transform = 'translate(-50%, -50%) scale(1)';
     }

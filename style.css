@@ -82,9 +82,9 @@ body, html {
 /* 有機的な発光を持つ呼吸サークル */
 #breathing-circle {
   width: 120px; height: 120px; border-radius: 50%;
-  background: radial-gradient(circle at center, rgba(92, 132, 196, 0.3) 0%, transparent 70%);
+  background: radial-gradient(circle at center, rgba(92, 132, 196, 0.7) 0%, transparent 70%);
   margin: 0 auto 50px; opacity: 0;
-  box-shadow: 0 0 40px rgba(92, 132, 196, 0.2);
+  box-shadow: 0 0 80px rgba(92, 132, 196, 0.55), 0 0 140px rgba(92, 132, 196, 0.35);
   filter: blur(2px);
 }
 
@@ -144,8 +144,8 @@ body, html {
 
 @keyframes breathe {
   0% { transform: scale(0.5); opacity: 0.2; }
-  21% { transform: scale(1.6); opacity: 0.8; }
-  58% { transform: scale(1.6); opacity: 0.8; }
+  21% { transform: scale(1.8); opacity: 0.8; }
+  58% { transform: scale(1.8); opacity: 0.8; }
   100% { transform: scale(0.5); opacity: 0.2; }
 }
 .is-breathing { animation: breathe 19s linear infinite; }
