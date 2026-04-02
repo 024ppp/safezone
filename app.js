@@ -366,13 +366,21 @@ function finishSequence() {
   if (cameraStream) {
     cameraStream.getTracks().forEach(track => track.stop());
   }
+  document.getElementById('hold-phase').style.display = 'none';
+  document.getElementById('gyro-phase').style.display = 'none';
+  document.getElementById('camera-phase').style.display = 'none';
 
-  document.getElementById('main-app').innerHTML = `
-    <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; width:100%;">
-      <div class="status-text" style="color:var(--success-color);">防衛シーケンス完了</div>
-      <div class="status-text" style="margin-top:20px; font-size:0.9rem;">平静を取り戻しました。<br>本来の軌道へ戻りなさい</div>
-    </div>
+  const completePhase = document.getElementById('complete-phase');
+  completePhase.innerHTML = `
+    <div class="status-text" style="color:var(--success-color);">防衛シーケンス完了</div>
+    <div class="status-text" style="margin-top:20px; font-size:0.9rem;">平静を取り戻しました。<br>本来の軌道へ戻りなさい</div>
+    <button id="restart-button">静寂に戻る</button>
   `;
+  completePhase.style.display = 'flex';
+
+  document.getElementById('restart-button').addEventListener('click', () => {
+    location.reload();
+  });
   
   gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 2.0);
   playVoice(voiceComplete);
