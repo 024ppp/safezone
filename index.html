@@ -13,11 +13,14 @@
 
 <div id="entry-screen">
   <button id="entry-button">静寂に入る</button>
-  <button id="debug-button">[DEBUG] ジャイロ直行</button>
+  <div id="debug-controls">
+    <button id="debug-button-gyro">[DEBUG] ジャイロ直行</button>
+    <button id="debug-button-camera">[DEBUG] カメラ直行</button>
+  </div>
 </div>
 
 <div id="main-app">
-  <div id="hold-phase">
+  <div id="hold-phase" class="phase-container">
     <div id="left-zone" class="touch-zone"></div>
     <div id="right-zone" class="touch-zone"></div>
     <div id="center-ui">
@@ -27,12 +30,22 @@
     </div>
   </div>
 
-  <div id="gyro-phase">
+  <div id="gyro-phase" class="phase-container" style="display: none;">
     <div id="gyro-status" class="status-text">端末を胸の高さで<br>水平に保ちなさい</div>
     <div id="level-outer">
       <div id="level-inner"></div>
     </div>
     <div id="gyro-timer" class="timer-display">00:20</div>
+  </div>
+
+  <div id="camera-phase" class="phase-container" style="display: none;">
+    <video id="camera-stream" autoplay playsinline></video>
+    <div id="target-reticle"></div>
+    <div id="camera-ui">
+      <div id="camera-status" class="status-text">カメラを起動中...</div>
+      <div id="camera-progress-bar"><div id="camera-progress-inner"></div></div>
+    </div>
+    <canvas id="camera-canvas" style="display:none;"></canvas>
   </div>
 </div>
 
