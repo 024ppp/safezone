@@ -11,8 +11,10 @@
   :root {
     --bg-idle: #080b12;
     --bg-active: #030408;
+    --bg-gyro: #050a14;
     --text-color: #d0d5e0;
     --accent-color: #4a6fa5;
+    --alert-color: #a54a4a;
   }
   body, html {
     margin: 0; padding: 0; width: 100%; height: 100%;
@@ -23,87 +25,71 @@
     user-select: none;
     -webkit-user-select: none;
     touch-action: none;
+    transition: background-color 1s ease;
   }
   
+  /* エントリー画面 */
   #entry-screen {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background-color: var(--bg-idle);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    opacity: 1;
-    transition: opacity 0.5s ease;
+    display: flex; justify-content: center; align-items: center;
+    z-index: 9999; transition: opacity 0.5s ease;
   }
   #entry-button {
-    padding: 30px 60px;
-    background: #1a202c;
-    border: 2px solid var(--accent-color);
-    color: #fff;
-    font-size: 1.2rem;
-    letter-spacing: 0.3em;
-    border-radius: 12px;
-    -webkit-appearance: none;
-  }
-  #entry-button:active {
-    background: var(--accent-color);
+    padding: 30px 60px; background: #1a202c; border: 2px solid var(--accent-color);
+    color: #fff; font-size: 1.2rem; letter-spacing: 0.3em;
+    border-radius: 12px; -webkit-appearance: none;
   }
 
-  #main-app {
-    display: none;
-    width: 100%; height: 100%;
-    position: relative;
-  }
-  .touch-zone {
-    position: absolute;
-    top: 0; width: 50%; height: 100%;
-  }
+  /* メインコンテナ */
+  #main-app { display: none; width: 100%; height: 100%; position: relative; }
+  
+  /* フェーズ1：ホールド領域 */
+  #hold-phase { width: 100%; height: 100%; position: absolute; }
+  .touch-zone { position: absolute; top: 0; width: 50%; height: 100%; }
   #left-zone { left: 0; }
   #right-zone { right: 0; }
-
   #center-ui {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    pointer-events: none;
-    width: 90%;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    text-align: center; pointer-events: none; width: 90%;
   }
   #breathing-circle {
-    width: 100px; height: 100px;
-    border-radius: 50%;
-    background-color: rgba(74, 111, 165, 0.4);
-    margin: 0 auto 40px;
-    opacity: 0;
+    width: 100px; height: 100px; border-radius: 50%;
+    background-color: rgba(74, 111, 165, 0.4); margin: 0 auto 40px; opacity: 0;
   }
-  #status-text {
-    font-size: 1.1rem;
-    letter-spacing: 0.1em;
-    line-height: 1.8;
+  
+  /* フェーズ2：ジャイロ領域 */
+  #gyro-phase {
+    display: none; width: 100%; height: 100%; position: absolute;
+    top: 0; left: 0; flex-direction: column; justify-content: center; align-items: center;
   }
-  #timer {
-    font-size: 3rem;
-    margin-top: 20px;
-    opacity: 0;
-    font-family: monospace;
+  #level-outer {
+    width: 200px; height: 200px; border: 2px solid var(--accent-color);
+    border-radius: 50%; position: relative; margin: 30px 0;
+    background: rgba(74, 111, 165, 0.05);
   }
+  #level-inner {
+    width: 40px; height: 40px; background: #e0f0ff;
+    border-radius: 50%; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); transition: transform 0.1s ease-out;
+    box-shadow: 0 0 15px rgba(224, 240, 255, 0.5);
+  }
+  
+  /* 共通UI */
+  .status-text { font-size: 1.1rem; letter-spacing: 0.1em; line-height: 1.8; text-align: center; }
+  .timer-display { font-size: 3.5rem; margin-top: 10px; font-family: monospace; opacity: 0; }
+  
   @keyframes breathe {
     0% { transform: scale(0.6); opacity: 0.3; }
-    21% { transform: scale(1.4); opacity: 0.8; }
-    58% { transform: scale(1.4); opacity: 0.8; }
+    21% { transform: scale(1.5); opacity: 0.9; }
+    58% { transform: scale(1.5); opacity: 0.9; }
     100% { transform: scale(0.6); opacity: 0.3; }
   }
   .is-breathing { animation: breathe 19s linear infinite; }
   
   #overlay-penalty {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: #000;
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 5000;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000; display: none; justify-content: center; align-items: center; z-index: 5000;
   }
 </style>
 </head>
@@ -114,38 +100,53 @@
 </div>
 
 <div id="main-app">
-  <div id="left-zone" class="touch-zone"></div>
-  <div id="right-zone" class="touch-zone"></div>
-  <div id="center-ui">
-    <div id="breathing-circle"></div>
-    <div id="status-text">左右を長押しし、<br>静寂を維持しなさい</div>
-    <div id="timer">03:00</div>
+  <div id="hold-phase">
+    <div id="left-zone" class="touch-zone"></div>
+    <div id="right-zone" class="touch-zone"></div>
+    <div id="center-ui">
+      <div id="breathing-circle"></div>
+      <div id="status-text" class="status-text">左右を長押しし、<br>静寂を維持しなさい</div>
+      <div id="timer" class="timer-display">00:30</div>
+    </div>
+  </div>
+
+  <div id="gyro-phase">
+    <div id="gyro-status" class="status-text">端末を胸の高さで<br>水平に保ちなさい</div>
+    <div id="level-outer">
+      <div id="level-inner"></div>
+    </div>
+    <div id="gyro-timer" class="timer-display">00:20</div>
   </div>
 </div>
 
 <div id="overlay-penalty">
-  <div style="text-align:center">まだ波は去っていません。<br>もう一度、手を置きなさい</div>
+  <div id="penalty-text" class="status-text"></div>
 </div>
 
 <script>
   let audioCtx, oscillator, gainNode;
-  let leftTouched = false, rightTouched = false, isActive = false;
-  let timeRemaining = 180, timerInterval;
-
-  // 音声ファイルの読み込み
-  const voiceStart = new Audio('start.m4a');
+  
+  // 音声ファイルの定義
+  const voiceBreathe = new Audio('breathe.m4a');
   const voicePenalty = new Audio('penalty.m4a');
-  const voiceFinish = new Audio('finish.m4a');
+  const voiceStand = new Audio('stand.m4a');
+  const voicePosture = new Audio('posture.m4a');
+  const voiceComplete = new Audio('complete.m4a');
+
+  // 状態管理
+  let currentPhase = 0; // 0: エントリー, 1: 長押し, 2: ジャイロ, 3: 完了
+  let leftTouched = false, rightTouched = false, isHoldActive = false;
+  let holdTimeRemaining = 30, gyroTimeRemaining = 20;
+  let timerInterval;
+  let isGyroLevel = false, isGyroActive = false, gyroPenaltyTimeout;
 
   function initSystem() {
     document.getElementById('entry-button').disabled = true;
 
-    // iOSの音声再生制限を解除するためのロード処理
-    voiceStart.load();
-    voicePenalty.load();
-    voiceFinish.load();
+    // 音声ロード
+    [voiceBreathe, voicePenalty, voiceStand, voicePosture, voiceComplete].forEach(v => v.load());
 
-    // ドローン音の起動
+    // ドローン音起動
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     oscillator = audioCtx.createOscillator();
     gainNode = audioCtx.createGain();
@@ -154,14 +155,36 @@
     gainNode.connect(audioCtx.destination);
     oscillator.start();
 
+    // ジャイロセンサーの権限要求（iOS 13+）
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(response => {
+          if (response === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation);
+          }
+        })
+        .catch(console.error);
+    } else {
+      window.addEventListener('deviceorientation', handleOrientation);
+    }
+
+    // 画面切り替え
     document.getElementById('entry-screen').style.opacity = '0';
     setTimeout(() => {
       document.getElementById('entry-screen').style.display = 'none';
       document.getElementById('main-app').style.display = 'block';
+      currentPhase = 1;
       setupTouchEvents();
     }, 500);
   }
 
+  // --- 音声再生ヘルパー ---
+  function playVoice(audioElement) {
+    audioElement.currentTime = 0;
+    audioElement.play().catch(e => console.log(e));
+  }
+
+  // --- タッチイベント（フェーズ1） ---
   function setupTouchEvents() {
     window.addEventListener('touchstart', handleTouch, { passive: false });
     window.addEventListener('touchmove', handleTouch, { passive: false });
@@ -171,84 +194,154 @@
 
   function handleTouch(e) {
     if (e.cancelable) e.preventDefault();
+    if (currentPhase !== 1) return;
+
     leftTouched = false;
     rightTouched = false;
     for (let i = 0; i < e.touches.length; i++) {
       if (e.touches[i].clientX < window.innerWidth / 2) leftTouched = true;
       else rightTouched = true;
     }
-    checkStatus();
-  }
-
-  function checkStatus() {
+    
     if (leftTouched && rightTouched) {
-      if (!isActive) startMeditation();
+      if (!isHoldActive) startHoldPhase();
     } else {
-      if (isActive) failMeditation();
+      if (isHoldActive) failHoldPhase();
     }
   }
 
-  function playVoice(audioElement) {
-    audioElement.currentTime = 0;
-    audioElement.play().catch(e => console.log("音声再生エラー:", e));
-  }
-
-  function startMeditation() {
-    isActive = true;
+  // --- フェーズ1：長押し制御 ---
+  function startHoldPhase() {
+    isHoldActive = true;
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    
     gainNode.gain.setTargetAtTime(0.4, audioCtx.currentTime, 1.5);
     
+    document.body.style.backgroundColor = 'var(--bg-active)';
     document.getElementById('status-text').innerHTML = '呼吸に意識を向け、<br>波が過ぎるのを待ちなさい';
-    playVoice(voiceStart);
+    playVoice(voiceBreathe);
 
     document.getElementById('timer').style.opacity = '1';
     document.getElementById('breathing-circle').style.opacity = '1';
     document.getElementById('breathing-circle').classList.add('is-breathing');
     
-    startTimer();
-  }
-
-  function failMeditation() {
-    isActive = false;
-    gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
-    clearInterval(timerInterval);
-    timeRemaining = 180;
-
-    document.getElementById('timer').style.opacity = '0';
-    document.getElementById('breathing-circle').style.opacity = '0';
-    document.getElementById('breathing-circle').classList.remove('is-breathing');
-    
-    const overlay = document.getElementById('overlay-penalty');
-    overlay.style.display = 'flex';
-    
-    playVoice(voicePenalty);
-
-    setTimeout(() => {
-      overlay.style.display = 'none';
-      document.getElementById('status-text').innerHTML = '左右を長押しし、<br>静寂を維持しなさい';
-    }, 3000);
-  }
-
-  function startTimer() {
     clearInterval(timerInterval);
     timerInterval = setInterval(() => {
-      timeRemaining--;
-      const m = String(Math.floor(timeRemaining / 60)).padStart(2, '0');
-      const s = String(timeRemaining % 60).padStart(2, '0');
-      document.getElementById('timer').innerText = `${m}:${s}`;
-      if (timeRemaining <= 0) {
+      holdTimeRemaining--;
+      updateTimerDisplay('timer', holdTimeRemaining);
+      if (holdTimeRemaining <= 0) {
         clearInterval(timerInterval);
-        finishMeditation();
+        transitionToGyroPhase();
       }
     }, 1000);
   }
 
-  function finishMeditation() {
-    isActive = false;
-    gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 1.0);
-    document.getElementById('status-text').innerHTML = '平静を取り戻しました。<br>本来の軌道へ戻りなさい';
-    playVoice(voiceFinish);
+  function failHoldPhase() {
+    isHoldActive = false;
+    gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+    clearInterval(timerInterval);
+    holdTimeRemaining = 30;
+
+    document.getElementById('timer').style.opacity = '0';
+    document.getElementById('breathing-circle').style.opacity = '0';
+    document.getElementById('breathing-circle').classList.remove('is-breathing');
+    updateTimerDisplay('timer', holdTimeRemaining);
+    
+    showPenalty('まだ波は去っていません。<br>もう一度、手を置きなさい', voicePenalty);
+    setTimeout(() => {
+      document.body.style.backgroundColor = 'var(--bg-idle)';
+      document.getElementById('status-text').innerHTML = '左右を長押しし、<br>静寂を維持しなさい';
+    }, 3000);
+  }
+
+  // --- フェーズ2への移行 ---
+  function transitionToGyroPhase() {
+    currentPhase = 2;
+    isHoldActive = false;
+    document.getElementById('hold-phase').style.display = 'none';
+    document.getElementById('gyro-phase').style.display = 'flex';
+    document.body.style.backgroundColor = 'var(--bg-gyro)';
+    
+    document.getElementById('gyro-timer').style.opacity = '1';
+    playVoice(voiceStand);
+    isGyroActive = true;
+    
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      if (isGyroLevel) {
+        gyroTimeRemaining--;
+        updateTimerDisplay('gyro-timer', gyroTimeRemaining);
+        if (gyroTimeRemaining <= 0) {
+          clearInterval(timerInterval);
+          finishSequence();
+        }
+      }
+    }, 1000);
+  }
+
+  // --- ジャイロセンサーイベント（フェーズ2） ---
+  function handleOrientation(event) {
+    if (currentPhase !== 2 || !isGyroActive) return;
+
+    let beta = event.beta || 0;   // 前後傾き [-180, 180]
+    let gamma = event.gamma || 0; // 左右傾き [-90, 90]
+
+    // 水平器のUI更新（玉を動かす）
+    let y = Math.min(Math.max(beta, -45), 45);
+    let x = Math.min(Math.max(gamma, -45), 45);
+    let moveY = (y / 45) * 80;
+    let moveX = (x / 45) * 80;
+    document.getElementById('level-inner').style.transform = `translate(calc(-50% + ${moveX}px), calc(-50% + ${moveY}px))`;
+
+    // 許容範囲（±15度）に収まっているか判定
+    if (Math.abs(beta) < 15 && Math.abs(gamma) < 15) {
+      if (!isGyroLevel) {
+        isGyroLevel = true;
+        document.getElementById('level-outer').style.borderColor = '#88c0d0';
+      }
+    } else {
+      if (isGyroLevel) {
+        isGyroLevel = false;
+        document.getElementById('level-outer').style.borderColor = 'var(--alert-color)';
+        failGyroPhase();
+      }
+    }
+  }
+
+  function failGyroPhase() {
+    isGyroActive = false;
+    gyroTimeRemaining = 20;
+    updateTimerDisplay('gyro-timer', gyroTimeRemaining);
+    
+    showPenalty('姿勢が崩れました。<br>水平を維持しなさい', voicePosture);
+    
+    setTimeout(() => {
+      isGyroActive = true;
+      document.getElementById('level-outer').style.borderColor = 'var(--accent-color)';
+    }, 3000);
+  }
+
+  // --- 完了・ユーティリティ ---
+  function finishSequence() {
+    currentPhase = 3;
+    isGyroActive = false;
+    gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 2.0);
+    document.getElementById('gyro-status').innerHTML = '平静を取り戻しました。<br>本来の軌道へ戻りなさい';
+    document.getElementById('level-outer').style.display = 'none';
+    playVoice(voiceComplete);
+  }
+
+  function updateTimerDisplay(elementId, seconds) {
+    const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const s = String(seconds % 60).padStart(2, '0');
+    document.getElementById(elementId).innerText = m + ':' + s;
+  }
+
+  function showPenalty(text, voice) {
+    const overlay = document.getElementById('overlay-penalty');
+    document.getElementById('penalty-text').innerHTML = text;
+    overlay.style.display = 'flex';
+    playVoice(voice);
+    setTimeout(() => { overlay.style.display = 'none'; }, 3000);
   }
 </script>
 </body>
