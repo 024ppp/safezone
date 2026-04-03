@@ -15,6 +15,9 @@ const colorVoices = {
   green: new Audio('green.m4a')
 };
 
+const voiceBreakout = new Audio('breakout.m4a');
+const voiceRhythm = new Audio('rhythm.m4a');
+
 const allVoices = [
   voiceBreathe,
   voicePenalty,
@@ -22,6 +25,8 @@ const allVoices = [
   voicePosture,
   voiceCamera,
   voiceComplete,
+  voiceBreakout,
+  voiceRhythm,
   colorVoices.red,
   colorVoices.blue,
   colorVoices.green
@@ -110,7 +115,7 @@ function initSystem(mode, startId) {
   }
 
   // 音声の事前ロード
-  [voiceBreathe, voicePenalty, voiceStand, voicePosture, voiceCamera, voiceComplete].forEach(v => v.load());
+  [voiceBreathe, voicePenalty, voiceStand, voicePosture, voiceCamera, voiceComplete, voiceBreakout, voiceRhythm].forEach(v => v.load());
   Object.values(colorVoices).forEach(v => v.load());
 
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -548,7 +553,7 @@ function startBreakoutPhase() {
     }
   }
 
-  playVoice(voiceBreathe); // 準備音として
+  playVoice(voiceBreakout);
 
   const touchMoveHandler = (e) => {
     if(currentPhase !== 4) return;
@@ -607,7 +612,8 @@ function startBreakoutPhase() {
       }
     });
 
-    if(activeBreakCnt === 0) {
+    const breakTarget = 5;
+    if((blocks.length - activeBreakCnt) >= breakTarget) {
       finishBreakout(true);
       return;
     }
@@ -615,20 +621,22 @@ function startBreakoutPhase() {
     // Wall collision
     if(ball.x + ball.dx > canvas.width - ball.r || ball.x + ball.dx < ball.r) ball.dx *= -1;
     if(ball.y + ball.dy < ball.r) ball.dy *= -1;
-    else if(ball.y + ball.dy > canvas.height - ball.r) { // Bottom edge
-      if(ball.x > paddle.x - ball.r && ball.x < paddle.x + paddle.w + ball.r) {
-        // Hit paddle
-        ball.dy = -Math.abs(ball.dy); // Force up
-        let hitPoint = ball.x - (paddle.x + paddle.w/2);
-        ball.dx = hitPoint * 0.15;
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        let osc = audioCtx.createOscillator();
-        let gn = audioCtx.createGain();
-        osc.connect(gn); gn.connect(audioCtx.destination);
-        osc.frequency.value = 200; gn.gain.setValueAtTime(0.05, audioCtx.currentTime);
-        gn.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
-      } else if(ball.y > canvas.height + 10) {
+    else {
+      // Paddle check
+      if (ball.dy > 0 && ball.y + ball.r <= paddle.y && ball.y + ball.dy + ball.r >= paddle.y) {
+        if(ball.x + ball.r > paddle.x && ball.x - ball.r < paddle.x + paddle.w) {
+          ball.dy = -Math.abs(ball.dy); // Bounce up
+          let hitPoint = ball.x - (paddle.x + paddle.w/2);
+          ball.dx = hitPoint * 0.15;
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          let osc = audioCtx.createOscillator(); let gn = audioCtx.createGain();
+          osc.connect(gn); gn.connect(audioCtx.destination);
+          osc.frequency.value = 200; gn.gain.setValueAtTime(0.05, audioCtx.currentTime);
+          gn.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+        }
+      }
+      if(ball.y > canvas.height + 10) {
         // Drop
         finishBreakout(false);
         return;
@@ -685,7 +693,7 @@ function startRhythmPhase() {
   const hitY = canvas.height - 60;
   const noteRadius = 15;
 
-  playVoice(voiceBreathe); // or similar
+  playVoice(voiceRhythm);
 
   const touchHandler = (e) => {
     if(currentPhase !== 5) return;

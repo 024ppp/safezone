@@ -1,99 +1,105 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SafeZone">
-<meta name="theme-color" content="#02050a">
-<title>SafeZone</title>
-<link rel="apple-touch-icon" href="icon.png">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SafeZone">
+  <meta name="theme-color" content="#02050a">
+  <title>SafeZone</title>
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-<div id="version-tag">v1.2.0</div>
+  <div id="version-tag">v1.2.1</div>
 
-<div id="entry-screen">
-  <button id="entry-button">静寂に入る</button>
-  <button id="debug-menu-button">[DEBUG]</button>
-</div>
+  <div id="entry-screen">
+    <button id="entry-button">静寂に入る</button>
+    <button id="debug-menu-button">[DEBUG]</button>
+  </div>
 
-<div id="main-app">
-  <div id="hold-phase" class="phase-container">
-    <div id="left-zone" class="touch-zone"></div>
-    <div id="right-zone" class="touch-zone"></div>
-    <div id="center-ui">
-      <div id="breathing-circle"></div>
-      <div id="status-text" class="status-text">左右を長押しし、<br>静寂を維持しなさい</div>
-      <div id="timer" class="timer-display">00:30</div>
+  <div id="main-app">
+    <div id="hold-phase" class="phase-container">
+      <div id="left-zone" class="touch-zone"></div>
+      <div id="right-zone" class="touch-zone"></div>
+      <div id="center-ui">
+        <div id="breathing-circle"></div>
+        <div id="status-text" class="status-text">左右を長押しし、<br>静寂を維持しなさい</div>
+        <div id="timer" class="timer-display">00:30</div>
+      </div>
+      <button class="phase-skip-button">SKIP</button>
+      <button class="phase-reset-button">EXIT</button>
     </div>
-    <button class="phase-skip-button">SKIP</button>
-    <button class="phase-reset-button">EXIT</button>
-  </div>
 
-  <div id="gyro-phase" class="phase-container" style="display: none;">
-    <div id="gyro-status" class="status-text">端末を胸の高さで<br>水平に保ちなさい</div>
-    <div id="level-outer">
-      <div id="level-inner"></div>
+    <div id="gyro-phase" class="phase-container" style="display: none;">
+      <div id="gyro-status" class="status-text">端末を胸の高さで<br>水平に保ちなさい</div>
+      <div id="level-outer">
+        <div id="level-inner"></div>
+      </div>
+      <div id="gyro-timer" class="timer-display">00:20</div>
+      <button class="phase-skip-button">SKIP</button>
+      <button class="phase-reset-button">EXIT</button>
     </div>
-    <div id="gyro-timer" class="timer-display">00:20</div>
-    <button class="phase-skip-button">SKIP</button>
-    <button class="phase-reset-button">EXIT</button>
-  </div>
 
-  <div id="camera-phase" class="phase-container" style="display: none;">
-    <video id="camera-stream" autoplay playsinline></video>
-    <div id="target-reticle"></div>
-    <div id="camera-ui">
-      <div id="camera-status" class="status-text">カメラを起動中...</div>
-      <div id="camera-progress-bar"><div id="camera-progress-inner"></div></div>
+    <div id="camera-phase" class="phase-container" style="display: none;">
+      <video id="camera-stream" autoplay playsinline></video>
+      <div id="target-reticle"></div>
+      <div id="camera-ui">
+        <div id="camera-status" class="status-text">カメラを起動中...</div>
+        <div id="camera-progress-bar">
+          <div id="camera-progress-inner"></div>
+        </div>
+      </div>
+      <canvas id="camera-canvas" style="display:none;"></canvas>
+      <button class="phase-skip-button">SKIP</button>
+      <button class="phase-reset-button">EXIT</button>
     </div>
-    <canvas id="camera-canvas" style="display:none;"></canvas>
-    <button class="phase-skip-button">SKIP</button>
-    <button class="phase-reset-button">EXIT</button>
+    <div id="ai-phase" class="phase-container" style="display: none;">
+      <button class="phase-skip-button">SKIP</button>
+      <button class="phase-reset-button">EXIT</button>
+    </div>
+    <div id="breakout-phase" class="phase-container" style="display: none;">
+      <div id="breakout-status" class="status-text" style="position:absolute; top:12%; width:100%;">隔壁を破壊しなさい</div>
+      <canvas id="breakout-canvas"></canvas>
+      <button class="phase-skip-button">SKIP</button>
+      <button class="phase-reset-button">EXIT</button>
+    </div>
+    <div id="rhythm-phase" class="phase-container" style="display: none;">
+      <div id="rhythm-status" class="status-text" style="position:absolute; top:12%; width:100%;">法則に同調しなさい</div>
+      <canvas id="rhythm-canvas"></canvas>
+      <button class="phase-skip-button">SKIP</button>
+      <button class="phase-reset-button">EXIT</button>
+    </div>
+    <div id="complete-phase" class="phase-container" style="display: none;">
+      <button class="phase-reset-button">EXIT</button>
+    </div>
   </div>
-  <div id="ai-phase" class="phase-container" style="display: none;">
-    <button class="phase-skip-button">SKIP</button>
-    <button class="phase-reset-button">EXIT</button>
-  </div>
-  <div id="breakout-phase" class="phase-container" style="display: none;">
-    <div id="breakout-status" class="status-text" style="position:absolute; top:12%; width:100%;">隔壁を破壊しなさい</div>
-    <canvas id="breakout-canvas"></canvas>
-    <button class="phase-skip-button">SKIP</button>
-    <button class="phase-reset-button">EXIT</button>
-  </div>
-  <div id="rhythm-phase" class="phase-container" style="display: none;">
-    <div id="rhythm-status" class="status-text" style="position:absolute; top:12%; width:100%;">法則に同調しなさい</div>
-    <canvas id="rhythm-canvas"></canvas>
-    <button class="phase-skip-button">SKIP</button>
-    <button class="phase-reset-button">EXIT</button>
-  </div>
-  <div id="complete-phase" class="phase-container" style="display: none;">
-    <button class="phase-reset-button">EXIT</button>
-  </div>
-</div>
 
-<div id="overlay-penalty">
-  <div id="penalty-text" class="status-text"></div>
-</div>
-
-<dialog id="debug-dialog">
-  <div class="status-text" style="font-size:0.9rem; margin-bottom:15px;">デバッグ：開始フェーズを選択</div>
-  <select id="debug-select">
-    <option value="hold">1. 長押し</option>
-    <option value="gyro">2. ジャイロ</option>
-    <option value="camera">3. カメラ</option>
-    <option value="breakout">4. ブロック崩し</option>
-    <option value="rhythm">5. リズム同調</option>
-    <option value="ai">6. AI相談 (準備中)</option>
-  </select>
-  <div style="margin-top:25px; display:flex; gap:10px; justify-content:center;">
-    <button id="debug-start-button" style="padding:10px 20px; font-size:0.8rem;">開始</button>
-    <button id="debug-close-button" style="padding:10px 20px; font-size:0.8rem; border-color:#444; color:#888;">閉じる</button>
+  <div id="overlay-penalty">
+    <div id="penalty-text" class="status-text"></div>
   </div>
-</dialog>
 
-<script src="app.js"></script>
+  <dialog id="debug-dialog">
+    <div class="status-text" style="font-size:0.9rem; margin-bottom:15px;">デバッグ：開始フェーズを選択</div>
+    <select id="debug-select">
+      <option value="hold">1. 長押し</option>
+      <option value="gyro">2. ジャイロ</option>
+      <option value="camera">3. カメラ</option>
+      <option value="breakout">4. ブロック崩し</option>
+      <option value="rhythm">5. リズム同調</option>
+      <option value="ai">6. AI相談 (準備中)</option>
+    </select>
+    <div style="margin-top:25px; display:flex; gap:10px; justify-content:center;">
+      <button id="debug-start-button" style="padding:10px 20px; font-size:0.8rem;">開始</button>
+      <button id="debug-close-button"
+        style="padding:10px 20px; font-size:0.8rem; border-color:#444; color:#888;">閉じる</button>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
 </body>
+
 </html>
