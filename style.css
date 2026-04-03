@@ -172,6 +172,7 @@ body, html {
   letter-spacing: 0.05em;
   opacity: 0; 
   color: rgba(255, 255, 255, 0.7);
+  text-align: center;
 }
 
 @keyframes breathe {
@@ -218,9 +219,16 @@ body, html {
 }
 
 #breath-status {
-  font-size: 1.2rem; letter-spacing: 0.2em;
+  position: fixed;
+  top: 45px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.2rem;
+  letter-spacing: 0.2em;
   color: var(--accent-color);
-  min-height: 24px;
+  z-index: 10000;
+  text-align: center;
+  pointer-events: none;
 }
 
 #overlay-final-clear {
