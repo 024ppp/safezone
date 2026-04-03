@@ -68,9 +68,15 @@ body, html {
   margin-bottom: 0;
 }
 
-#debug-controls button {
-  padding: 8px 12px; background: transparent; border: 1px solid #333;
-  color: #666; font-size: 0.75rem; margin: 0 5px; border-radius: 4px; -webkit-appearance: none;
+#debug-menu-button {
+  margin-top: 12px;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid #333;
+  color: #666;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  -webkit-appearance: none;
 }
 
 #main-app { display: none; width: 100%; height: 100dvh; position: relative; }
@@ -111,6 +117,8 @@ body, html {
 }
 
 #camera-phase { background-color: #000; overflow: hidden; }
+#ai-phase { display:flex; flex-direction: column; justify-content: center; align-items: center; }
+#breakout-phase { display:flex; flex-direction: column; justify-content: center; align-items: center; }
 #complete-phase { flex-direction: column; justify-content: center; align-items: center; }
 #camera-stream { width: 100%; height: 100%; object-fit: cover; opacity: 0.6; filter: grayscale(30%); }
 
@@ -160,4 +168,33 @@ body, html {
 #overlay-penalty {
   position: fixed; top: 0; left: 0; width: 100%; height: 100dvh;
   background: #000; display: none; justify-content: center; align-items: center; z-index: 5000;
+}
+
+#debug-dialog {
+  border: 1px solid var(--accent-color);
+  background-color: #080b12;
+  color: var(--text-color);
+  border-radius: 10px;
+  padding: 22px 24px;
+  max-width: 320px;
+}
+
+#debug-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.phase-reset-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10001;
+  background: transparent;
+  border: 1px solid rgba(200, 209, 224, 0.2);
+  color: rgba(200, 209, 224, 0.4);
+  font-family: "SF Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  padding: 5px 10px;
+  border-radius: 4px;
+  pointer-events: auto;
 }

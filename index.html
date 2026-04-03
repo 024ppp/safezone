@@ -8,17 +8,15 @@
 <meta name="apple-mobile-web-app-title" content="SafeZone">
 <meta name="theme-color" content="#02050a">
 <title>SafeZone</title>
+<link rel="apple-touch-icon" href="icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="version-tag">v1.0.7</div>
+<div id="version-tag">v1.1.3</div>
 
 <div id="entry-screen">
   <button id="entry-button">静寂に入る</button>
-  <div id="debug-controls">
-    <button id="debug-button-gyro">[DEBUG] ジャイロ直行</button>
-    <button id="debug-button-camera">[DEBUG] カメラ直行</button>
-  </div>
+  <button id="debug-menu-button">[DEBUG]</button>
 </div>
 
 <div id="main-app">
@@ -30,6 +28,7 @@
       <div id="status-text" class="status-text">左右を長押しし、<br>静寂を維持しなさい</div>
       <div id="timer" class="timer-display">00:30</div>
     </div>
+    <button class="phase-reset-button">EXIT</button>
   </div>
 
   <div id="gyro-phase" class="phase-container" style="display: none;">
@@ -38,6 +37,7 @@
       <div id="level-inner"></div>
     </div>
     <div id="gyro-timer" class="timer-display">00:20</div>
+    <button class="phase-reset-button">EXIT</button>
   </div>
 
   <div id="camera-phase" class="phase-container" style="display: none;">
@@ -48,13 +48,37 @@
       <div id="camera-progress-bar"><div id="camera-progress-inner"></div></div>
     </div>
     <canvas id="camera-canvas" style="display:none;"></canvas>
+    <button class="phase-reset-button">EXIT</button>
   </div>
-  <div id="complete-phase" class="phase-container" style="display: none;"></div>
+  <div id="ai-phase" class="phase-container" style="display: none;">
+    <button class="phase-reset-button">EXIT</button>
+  </div>
+  <div id="breakout-phase" class="phase-container" style="display: none;">
+    <button class="phase-reset-button">EXIT</button>
+  </div>
+  <div id="complete-phase" class="phase-container" style="display: none;">
+    <button class="phase-reset-button">EXIT</button>
+  </div>
 </div>
 
 <div id="overlay-penalty">
   <div id="penalty-text" class="status-text"></div>
 </div>
+
+<dialog id="debug-dialog">
+  <div class="status-text" style="font-size:0.9rem; margin-bottom:15px;">デバッグ：開始フェーズを選択</div>
+  <select id="debug-select">
+    <option value="hold">1. 長押し</option>
+    <option value="gyro">2. ジャイロ</option>
+    <option value="camera">3. カメラ</option>
+    <option value="ai">4. AI相談 (準備中)</option>
+    <option value="breakout">5. ブロック崩し (準備中)</option>
+  </select>
+  <div style="margin-top:25px; display:flex; gap:10px; justify-content:center;">
+    <button id="debug-start-button" style="padding:10px 20px; font-size:0.8rem;">開始</button>
+    <button id="debug-close-button" style="padding:10px 20px; font-size:0.8rem; border-color:#444; color:#888;">閉じる</button>
+  </div>
+</dialog>
 
 <script src="app.js"></script>
 </body>

@@ -27,6 +27,11 @@ const allVoices = [
   colorVoices.green
 ];
 
+// タスク管理
+const allTaskIds = ['hold', 'gyro', 'camera', 'ai', 'breakout'];
+let taskQueue = [];
+let currentMode = 'normal';
+
 // 状態管理
 let currentPhase = 0; // 0: エントリー, 1: 長押し, 2: ジャイロ, 3: カメラ, 4: 完了
 let timerInterval;
@@ -48,11 +53,49 @@ let isCameraActive = false;
 
 // イベントリスナー登録
 document.getElementById('entry-button').addEventListener('click', () => initSystem('normal'));
-document.getElementById('debug-button-gyro').addEventListener('click', () => initSystem('gyro'));
-document.getElementById('debug-button-camera').addEventListener('click', () => initSystem('camera'));
+document.getElementById('debug-menu-button').addEventListener('click', () => {
+  const dialog = document.getElementById('debug-dialog');
+  if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
+});
+document.getElementById('debug-close-button').addEventListener('click', () => {
+  const dialog = document.getElementById('debug-dialog');
+  if (dialog && dialog.open) dialog.close();
+});
+document.getElementById('debug-start-button').addEventListener('click', () => {
+  const select = document.getElementById('debug-select');
+  const dialog = document.getElementById('debug-dialog');
+  const selected = select ? select.value : 'hold';
+  if (dialog && dialog.open) dialog.close();
+  initSystem('debug', selected);
+});
 
-function initSystem(mode) {
+// EXIT ボタンで即リセット
+document.addEventListener('click', (e) => {
+  const target = e.target;
+  if (target && target.classList && target.classList.contains('phase-reset-button')) {
+    location.reload();
+  }
+});
+
+function initSystem(mode, startId) {
+  currentMode = mode;
   document.getElementById('entry-button').disabled = true;
+  const debugBtn = document.getElementById('debug-menu-button');
+  if (debugBtn) debugBtn.disabled = true;
+
+  // タスクキュー構築
+  if (mode === 'normal') {
+    const shuffled = [...allTaskIds];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    taskQueue = shuffled.slice(0, 3);
+  } else if (mode === 'debug' && startId) {
+    taskQueue = [startId];
+  } else {
+    taskQueue = [];
+  }
 
   // 音声の事前ロード
   [voiceBreathe, voicePenalty, voiceStand, voicePosture, voiceCamera, voiceComplete].forEach(v => v.load());
@@ -79,18 +122,45 @@ function initSystem(mode) {
   setTimeout(() => {
     document.getElementById('entry-screen').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
-    
-    if (mode === 'gyro') {
-      document.getElementById('hold-phase').style.display = 'none';
-      startGyroPhase();
-    } else if (mode === 'camera') {
-      document.getElementById('hold-phase').style.display = 'none';
-      startCameraPhase();
-    } else {
-      currentPhase = 1;
-      setupTouchEvents();
-    }
+    currentPhase = 1;
+    setupTouchEvents();
+    runNextTask();
   }, 500);
+}
+
+function runNextTask() {
+  const nextId = taskQueue.shift();
+
+  // すべてのフェーズコンテナを非表示
+  document.querySelectorAll('.phase-container').forEach(el => {
+    el.style.display = 'none';
+  });
+
+  if (!nextId) {
+    if (currentMode === 'normal') {
+      finishSequence();
+    } else {
+      location.reload();
+    }
+    return;
+  }
+
+  if (nextId === 'hold') {
+    document.getElementById('hold-phase').style.display = 'block';
+    startHoldPhase();
+  } else if (nextId === 'gyro') {
+    document.getElementById('gyro-phase').style.display = 'flex';
+    startGyroPhase();
+  } else if (nextId === 'camera') {
+    document.getElementById('camera-phase').style.display = 'block';
+    startCameraPhase();
+  } else if (nextId === 'ai') {
+    document.getElementById('ai-phase').style.display = 'flex';
+    startAiPhase();
+  } else if (nextId === 'breakout') {
+    document.getElementById('breakout-phase').style.display = 'flex';
+    startBreakoutPhase();
+  }
 }
 
 // 音声再生関数を以下のように書き換えます
@@ -164,7 +234,7 @@ function startHoldPhase() {
     updateTimerDisplay('timer', holdTimeRemaining);
     if (holdTimeRemaining <= 0) {
       clearInterval(timerInterval);
-      startGyroPhase();
+      runNextTask();
     }
   }, 1000);
 }
@@ -211,7 +281,7 @@ function startGyroPhase() {
       updateTimerDisplay('gyro-timer', gyroTimeRemaining);
       if (gyroTimeRemaining <= 0) {
         clearInterval(timerInterval);
-        startCameraPhase();
+        runNextTask();
       }
     }
   }, 1000);
@@ -349,7 +419,7 @@ function processVideoFrame() {
     document.getElementById('camera-progress-inner').style.width = `${progressPercent}%`;
 
     if (colorMatchFrames >= REQUIRED_MATCH_FRAMES) {
-      finishSequence();
+      runNextTask();
       return;
     }
   }
@@ -369,6 +439,10 @@ function finishSequence() {
   document.getElementById('hold-phase').style.display = 'none';
   document.getElementById('gyro-phase').style.display = 'none';
   document.getElementById('camera-phase').style.display = 'none';
+  const aiPhase = document.getElementById('ai-phase');
+  if (aiPhase) aiPhase.style.display = 'none';
+  const breakoutPhase = document.getElementById('breakout-phase');
+  if (breakoutPhase) breakoutPhase.style.display = 'none';
 
   const completePhase = document.getElementById('complete-phase');
   completePhase.innerHTML = `
@@ -384,4 +458,16 @@ function finishSequence() {
   
   gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 2.0);
   playVoice(voiceComplete);
+}
+
+function startAiPhase() {
+  setTimeout(() => {
+    runNextTask();
+  }, 3000);
+}
+
+function startBreakoutPhase() {
+  setTimeout(() => {
+    runNextTask();
+  }, 3000);
 }
