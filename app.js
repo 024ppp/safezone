@@ -1,4 +1,6 @@
-let audioCtx, oscillator, gainNode;
+let audioCtx, bgOscillator, bgGainNode;
+let breathState = 0; // 0=吸う, 1=止める, 2=吐く
+let breathTimer = 4;
 
 const voiceBreathe = new Audio('sounds/breathe.m4a');
 const voicePenalty = new Audio('sounds/penalty.m4a');
@@ -121,12 +123,6 @@ function initSystem(mode, startId) {
   Object.values(colorVoices).forEach(v => v.load());
 
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  oscillator = audioCtx.createOscillator();
-  gainNode = audioCtx.createGain();
-  gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-  oscillator.connect(gainNode);
-  gainNode.connect(audioCtx.destination);
-  oscillator.start();
 
   // ジャイロの権限要求
   if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -149,6 +145,7 @@ function initSystem(mode, startId) {
 
 function runNextTask() {
   // 念のため古い処理を止める（SKIP / 自動遷移 / タスク切替の競合対策）
+  if (typeof stopBackgroundAudio === 'function') stopBackgroundAudio();
   clearInterval(timerInterval);
   timerInterval = null;
   if (cameraStream) {
@@ -301,10 +298,11 @@ function handleTouch(e) {
 function prepareHoldPhase() {
   currentPhase = 1;
   isHoldActive = false;
-  holdTimeRemaining = 30;
+  holdTimeRemaining = 38;
   document.getElementById('timer').style.opacity = '0';
   document.getElementById('breathing-circle').style.opacity = '0';
   document.getElementById('breathing-circle').classList.remove('is-breathing');
+  document.getElementById('breath-status').style.opacity = '0';
   document.body.style.backgroundColor = 'var(--bg-idle)';
   document.getElementById('status-text').innerHTML = '左右を長押しし、<br>静寂を維持しなさい';
   updateTimerDisplay('timer', holdTimeRemaining);
@@ -314,7 +312,18 @@ function prepareHoldPhase() {
 function startHoldPhase() {
   isHoldActive = true;
   if (audioCtx.state === 'suspended') audioCtx.resume();
-  gainNode.gain.setTargetAtTime(0.4, audioCtx.currentTime, 1.5);
+  
+  if(!bgOscillator) {
+    bgOscillator = audioCtx.createOscillator();
+    bgOscillator.type = 'sine';
+    bgOscillator.frequency.value = 40;
+    bgGainNode = audioCtx.createGain();
+    bgGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+    bgOscillator.connect(bgGainNode);
+    bgGainNode.connect(audioCtx.destination);
+    bgOscillator.start();
+  }
+  bgGainNode.gain.setTargetAtTime(0.4, audioCtx.currentTime, 1.5);
   
   document.body.style.backgroundColor = 'var(--bg-active)';
   document.getElementById('status-text').innerHTML = '呼吸に意識を向け、<br>波が過ぎるのを待ちなさい';
@@ -323,26 +332,54 @@ function startHoldPhase() {
   document.getElementById('timer').style.opacity = '1';
   document.getElementById('breathing-circle').style.opacity = '1';
   document.getElementById('breathing-circle').classList.add('is-breathing');
+  document.getElementById('breath-status').style.opacity = '1';
+  
+  breathState = 0;
+  breathTimer = 4;
+  updateBreathStatus();
   
   clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     holdTimeRemaining--;
     updateTimerDisplay('timer', holdTimeRemaining);
+    
+    breathTimer--;
+    if(breathTimer <= 0) {
+      breathState = (breathState + 1) % 3;
+      if(breathState === 0) breathTimer = 4;
+      else if(breathState === 1) breathTimer = 7;
+      else if(breathState === 2) breathTimer = 8;
+    }
+    updateBreathStatus();
+
     if (holdTimeRemaining <= 0) {
       clearInterval(timerInterval);
+      stopBackgroundAudio();
       completePhase();
     }
   }, 1000);
 }
 
+function updateBreathStatus() {
+  const st = document.getElementById('breath-status');
+  if(breathState === 0) st.innerText = `吸って：${breathTimer}`;
+  else if(breathState === 1) st.innerText = `止めて：${breathTimer}`;
+  else if(breathState === 2) st.innerText = `吐いて：${breathTimer}`;
+}
+
+function stopBackgroundAudio() {
+  if (bgGainNode) bgGainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+}
+
 function failHoldPhase() {
   isHoldActive = false;
-  gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+  stopBackgroundAudio();
   clearInterval(timerInterval);
-  holdTimeRemaining = 30;
+  holdTimeRemaining = 38;
 
   document.getElementById('timer').style.opacity = '0';
   document.getElementById('breathing-circle').style.opacity = '0';
+  document.getElementById('breath-status').style.opacity = '0';
   document.getElementById('breathing-circle').classList.remove('is-breathing');
   updateTimerDisplay('timer', holdTimeRemaining);
   
@@ -367,7 +404,6 @@ function startGyroPhase() {
   
   document.getElementById('gyro-timer').style.opacity = '1';
   if (audioCtx.state === 'suspended') audioCtx.resume();
-  gainNode.gain.setTargetAtTime(0.3, audioCtx.currentTime, 1.0);
   
   playVoice(voiceStand);
   isGyroActive = true;
@@ -561,16 +597,62 @@ function finishSequence() {
   const breakoutPhase = document.getElementById('breakout-phase');
   if (breakoutPhase) breakoutPhase.style.display = 'none';
 
-  const completePhase = document.getElementById('complete-phase');
-  completePhase.innerHTML = `
-    <div class="status-text" style="color:var(--success-color);">防衛シーケンス完了</div>
-    <div class="status-text" style="margin-top:20px; font-size:0.9rem;">平静を取り戻しました。<br>本来の軌道へ戻りなさい</div>
-    <button id="restart-button">静寂に戻る</button>
-  `;
-  completePhase.style.display = 'flex';
+  const rhythmPhase = document.getElementById('rhythm-phase');
+  if (rhythmPhase) rhythmPhase.style.display = 'none';
+
+  if (typeof stopBackgroundAudio === 'function') stopBackgroundAudio();
+
+  const finalOverlay = document.getElementById('overlay-final-clear');
+  finalOverlay.style.display = 'flex';
+
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  let gn = audioCtx.createGain();
+  gn.connect(audioCtx.destination);
+  gn.gain.setValueAtTime(0.1, audioCtx.currentTime);
   
-  gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 2.0);
-  playVoice(voiceComplete);
+  // Grand majestic chord
+  [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => { // C major 7
+    let osc = audioCtx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    osc.connect(gn);
+    osc.start(audioCtx.currentTime + i * 0.1);
+    gn.gain.setTargetAtTime(0, audioCtx.currentTime + 3.0, 1.0);
+    osc.stop(audioCtx.currentTime + 4.0);
+  });
+
+  // Massive fireworks
+  for(let i = 0; i < 80; i++) {
+    const p = document.createElement('div');
+    p.classList.add('big-firework-particle');
+    p.style.left = '50%';
+    p.style.top = '50%';
+    let angle = Math.random() * Math.PI * 2;
+    let dist = 100 + Math.random() * 300;
+    p.style.setProperty('--tx', `${Math.cos(angle)*dist}px`);
+    p.style.setProperty('--ty', `${Math.sin(angle)*dist}px`);
+    finalOverlay.appendChild(p);
+    setTimeout(() => p.remove(), 2000);
+  }
+
+  // After animation
+  setTimeout(() => {
+    finalOverlay.style.display = 'none';
+    const completePhase = document.getElementById('complete-phase');
+    completePhase.innerHTML = `
+      <div class="status-text" style="color:var(--success-color);">防衛シーケンス完了</div>
+      <div class="status-text" style="margin-top:20px; font-size:0.9rem;">平静を取り戻しました。<br>本来の軌道へ戻りなさい</div>
+      <button id="restart-button">静寂に戻る</button>
+    `;
+    completePhase.style.display = 'flex';
+    playVoice(voiceComplete);
+    
+    // Add listener safely just in case
+    const restartBtn = document.getElementById('restart-button');
+    if (restartBtn) {
+      restartBtn.addEventListener('click', () => { location.reload(); });
+    }
+  }, 4000);
 }
 
 function startAiPhase() {

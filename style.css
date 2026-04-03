@@ -217,6 +217,43 @@ body, html {
   100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
 }
 
+#breath-status {
+  font-size: 1.2rem; letter-spacing: 0.2em;
+  color: var(--accent-color);
+  min-height: 24px;
+}
+
+#overlay-final-clear {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background-color: var(--bg-complete); z-index: 2000;
+  display: none; justify-content: center; align-items: center; text-align: center;
+  overflow: hidden;
+}
+#final-clear-text {
+  font-size: 2rem; letter-spacing: 0.4em;
+  color: var(--success-color);
+  animation: pulse-final 2s ease-out;
+  text-shadow: 0 0 20px var(--success-color);
+}
+@keyframes pulse-final {
+  0% { transform: scale(0.5); opacity: 0; filter: blur(10px); }
+  50% { transform: scale(1.2); opacity: 1; filter: blur(0px); }
+  100% { transform: scale(1); opacity: 1; filter: blur(0px); }
+}
+
+.big-firework-particle {
+  position: absolute;
+  width: 6px; height: 6px;
+  background-color: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 15px var(--success-color), 0 0 30px #fff;
+  animation: explode-final 2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+@keyframes explode-final {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+}
+
 #debug-dialog {
   border: 1px solid var(--accent-color);
   background-color: #080b12;
