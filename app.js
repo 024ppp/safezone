@@ -28,9 +28,11 @@ const allVoices = [
 ];
 
 // タスク管理
-const allTaskIds = ['hold', 'gyro', 'camera', 'ai', 'breakout'];
+const allTaskIds = ['hold', 'gyro', 'camera', 'breakout', 'rhythm', 'ai'];
 let taskQueue = [];
 let currentMode = 'normal';
+let breakoutReqId = null;
+let rhythmReqId = null;
 
 // 状態管理
 let currentPhase = 0; // 0: エントリー, 1: 長押し, 2: ジャイロ, 3: カメラ, 4: 完了
@@ -94,12 +96,13 @@ function initSystem(mode, startId) {
 
   // タスクキュー構築
   if (mode === 'normal') {
-    const shuffled = [...allTaskIds];
+    const validTaskIds = ['hold', 'gyro', 'camera', 'breakout', 'rhythm'];
+    const shuffled = [...validTaskIds];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    taskQueue = shuffled.slice(0, 3);
+    taskQueue = shuffled;
   } else if (mode === 'debug' && startId) {
     taskQueue = [startId];
   } else {
@@ -152,6 +155,14 @@ function runNextTask() {
     clearTimeout(pendingTaskTimeout);
     pendingTaskTimeout = null;
   }
+  if (breakoutReqId) {
+    cancelAnimationFrame(breakoutReqId);
+    breakoutReqId = null;
+  }
+  if (rhythmReqId) {
+    cancelAnimationFrame(rhythmReqId);
+    rhythmReqId = null;
+  }
 
   const nextId = taskQueue.shift();
 
@@ -184,6 +195,9 @@ function runNextTask() {
   } else if (nextId === 'breakout') {
     document.getElementById('breakout-phase').style.display = 'flex';
     startBreakoutPhase();
+  } else if (nextId === 'rhythm') {
+    document.getElementById('rhythm-phase').style.display = 'flex';
+    startRhythmPhase();
   }
 }
 
@@ -240,6 +254,7 @@ function handleTouch(e) {
 }
 
 function prepareHoldPhase() {
+  currentPhase = 1;
   isHoldActive = false;
   holdTimeRemaining = 30;
   document.getElementById('timer').style.opacity = '0';
@@ -333,7 +348,7 @@ function handleOrientation(event) {
   let x = Math.min(Math.max(gamma, -45), 45);
   document.getElementById('level-inner').style.transform = `translate(calc(-50% + ${(x/45)*80}px), calc(-50% + ${(y/45)*80}px))`;
 
-  if (Math.abs(beta) < 15 && Math.abs(gamma) < 15) {
+  if (Math.abs(beta) < 6 && Math.abs(gamma) < 6) {
     if (!isGyroLevel) {
       isGyroLevel = true;
       document.getElementById('level-outer').style.borderColor = '#88c0d0';
@@ -500,8 +515,287 @@ function startAiPhase() {
   }, 3000);
 }
 
+// ==========================================
+// フェーズ4：ブロック崩し
+// ==========================================
 function startBreakoutPhase() {
-  pendingTaskTimeout = setTimeout(() => {
-    runNextTask();
-  }, 3000);
+  currentPhase = 4;
+  const phase = document.getElementById('breakout-phase');
+  phase.style.display = 'flex';
+  const canvas = document.getElementById('breakout-canvas');
+  // Match CSS size dynamically
+  canvas.width = canvas.offsetWidth || 300;
+  canvas.height = canvas.offsetHeight || 400;
+
+  const ctx = canvas.getContext('2d');
+  
+  let paddle = { w: 80, h: 10, x: canvas.width/2 - 40, y: canvas.height - 30 };
+  let ball = { x: canvas.width/2, y: canvas.height - 80, r: 5, dx: 3.5, dy: -3.5 };
+  if(Math.random() > 0.5) ball.dx *= -1;
+
+  let blocks = [];
+  const rows = 3, cols = 4;
+  const blockW = (canvas.width - 40) / cols - 10;
+  const blockH = 20;
+
+  for(let r=0; r<rows; r++) {
+    for(let c=0; c<cols; c++) {
+      blocks.push({
+        x: 25 + c * (blockW + 10),
+        y: 40 + r * (blockH + 10),
+        w: blockW, h: blockH, active: true
+      });
+    }
+  }
+
+  playVoice(voiceBreathe); // 準備音として
+
+  const touchMoveHandler = (e) => {
+    if(currentPhase !== 4) return;
+    if(e.cancelable) e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    let touchX = e.touches[0].clientX - rect.left;
+    paddle.x = Math.max(0, Math.min(canvas.width - paddle.w, touchX - paddle.w/2));
+  };
+  window.addEventListener('touchmove', touchMoveHandler, {passive: false});
+
+  function draw() {
+    if(currentPhase !== 4) {
+      window.removeEventListener('touchmove', touchMoveHandler);
+      return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw paddle
+    ctx.fillStyle = 'rgba(200, 209, 224, 0.8)';
+    ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+
+    // Draw ball
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+    ctx.fillStyle = 'var(--accent-color)';
+    ctx.fill();
+    ctx.closePath();
+
+    // Draw blocks
+    let activeBreakCnt = 0;
+    ctx.fillStyle = 'rgba(92, 132, 196, 0.6)';
+    blocks.forEach(b => {
+      if(!b.active) return;
+      activeBreakCnt++;
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.strokeRect(b.x, b.y, b.w, b.h);
+
+      // Collision Check
+      let closestX = Math.max(b.x, Math.min(ball.x, b.x + b.w));
+      let closestY = Math.max(b.y, Math.min(ball.y, b.y + b.h));
+      let distanceX = ball.x - closestX;
+      let distanceY = ball.y - closestY;
+      let distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
+
+      if (distanceSquared < (ball.r * ball.r)) {
+        ball.dy *= -1; // シンプル実装
+        b.active = false;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        let osc = audioCtx.createOscillator();
+        let gn = audioCtx.createGain();
+        osc.connect(gn); gn.connect(audioCtx.destination);
+        osc.frequency.value = 400; gn.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gn.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+      }
+    });
+
+    if(activeBreakCnt === 0) {
+      finishBreakout(true);
+      return;
+    }
+
+    // Wall collision
+    if(ball.x + ball.dx > canvas.width - ball.r || ball.x + ball.dx < ball.r) ball.dx *= -1;
+    if(ball.y + ball.dy < ball.r) ball.dy *= -1;
+    else if(ball.y + ball.dy > canvas.height - ball.r) { // Bottom edge
+      if(ball.x > paddle.x - ball.r && ball.x < paddle.x + paddle.w + ball.r) {
+        // Hit paddle
+        ball.dy = -Math.abs(ball.dy); // Force up
+        let hitPoint = ball.x - (paddle.x + paddle.w/2);
+        ball.dx = hitPoint * 0.15;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        let osc = audioCtx.createOscillator();
+        let gn = audioCtx.createGain();
+        osc.connect(gn); gn.connect(audioCtx.destination);
+        osc.frequency.value = 200; gn.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gn.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+      } else if(ball.y > canvas.height + 10) {
+        // Drop
+        finishBreakout(false);
+        return;
+      }
+    }
+
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    breakoutReqId = requestAnimationFrame(draw);
+  }
+
+  function finishBreakout(success) {
+    window.removeEventListener('touchmove', touchMoveHandler);
+    if(success) {
+      // 成功音
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      let osc = audioCtx.createOscillator();
+      let gn = audioCtx.createGain();
+      osc.connect(gn); gn.connect(audioCtx.destination);
+      osc.frequency.value = 800; gn.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gn.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+      
+      runNextTask();
+    } else {
+      showPenalty('隔壁制御に失敗しました。<br>再構築します', voicePenalty);
+      setTimeout(() => {
+        if(currentPhase === 4) startBreakoutPhase(); // Retry
+      }, 3000);
+    }
+  }
+
+  draw();
+}
+
+// ==========================================
+// フェーズ5：リズム同期
+// ==========================================
+function startRhythmPhase() {
+  currentPhase = 5;
+  const phase = document.getElementById('rhythm-phase');
+  phase.style.display = 'flex';
+  const canvas = document.getElementById('rhythm-canvas');
+  canvas.width = canvas.offsetWidth || 300;
+  canvas.height = canvas.offsetHeight || 400;
+  const ctx = canvas.getContext('2d');
+
+  let notes = [];
+  let noteSpeed = canvas.height * 0.01; // dynamically adapt to height
+  let successCount = 0;
+  const targetCount = 5;
+  let frameCount = 0;
+  const hitY = canvas.height - 60;
+  const noteRadius = 15;
+
+  playVoice(voiceBreathe); // or similar
+
+  const touchHandler = (e) => {
+    if(currentPhase !== 5) return;
+    if(e.cancelable) e.preventDefault();
+    
+    // Find matching note
+    let tapProcessed = false;
+    if(notes.length > 0) {
+      // Check oldest note
+      let n = notes[0];
+      let dist = Math.abs(n.y - hitY);
+      if(dist < 40) {
+       notes.shift(); // remove note
+       successCount++;
+       tapProcessed = true;
+       // Play hit sound
+       if (audioCtx.state === 'suspended') audioCtx.resume();
+       let osc = audioCtx.createOscillator();
+       let gn = audioCtx.createGain();
+       osc.connect(gn); gn.connect(audioCtx.destination);
+       osc.frequency.value = 600; gn.gain.setValueAtTime(0.1, audioCtx.currentTime);
+       gn.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+       osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+
+       if(successCount >= targetCount) {
+         finishRhythm(true, '');
+       }
+      } else if (dist < 100) {
+        // Bad timing
+        finishRhythm(false, '同調が乱れました。<br>同期をやり直します');
+        tapProcessed = true;
+      }
+    } 
+    
+    // Tap with no note near
+    if(!tapProcessed) {
+      finishRhythm(false, '不必要なノイズです。<br>同期をやり直します');
+    }
+  };
+  window.addEventListener('touchstart', touchHandler, {passive: false});
+
+  function draw() {
+    if(currentPhase !== 5) {
+      window.removeEventListener('touchstart', touchHandler);
+      return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Hit Zone
+    ctx.beginPath();
+    ctx.moveTo(0, hitY);
+    ctx.lineTo(canvas.width, hitY);
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(92, 132, 196, 0.2)';
+    ctx.fillRect(0, hitY - 20, canvas.width, 40);
+
+    // Spawn Notes
+    if(frameCount % 60 === 0 && (successCount + notes.length) < targetCount) {
+      notes.push({ y: -20 });
+    }
+
+    // Move & Draw Notes
+    ctx.fillStyle = 'rgba(200, 209, 224, 0.9)';
+    for(let i=0; i<notes.length; i++) {
+        let n = notes[i];
+        n.y += noteSpeed;
+        ctx.beginPath();
+        ctx.arc(canvas.width/2, n.y, noteRadius, 0, Math.PI*2);
+        ctx.fill();
+
+        if(n.y > canvas.height + 20) {
+            finishRhythm(false, '同期シグナルを喪失しました。<br>初めからやり直しなさい');
+            return;
+        }
+    }
+
+    // Score Info
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '16px "SF Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${successCount} / ${targetCount}`, canvas.width/2, 30);
+
+    frameCount++;
+    rhythmReqId = requestAnimationFrame(draw);
+  }
+
+  function finishRhythm(success, errorMsg) {
+    if(success) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      let osc = audioCtx.createOscillator();
+      let gn = audioCtx.createGain();
+      osc.connect(gn); gn.connect(audioCtx.destination);
+      osc.frequency.value = 800; gn.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gn.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+      window.removeEventListener('touchstart', touchHandler); // ensure cleaned up on next step
+      runNextTask();
+    } else {
+      showPenalty(errorMsg, voicePenalty);
+      setTimeout(() => {
+        if(currentPhase === 5) {
+          window.removeEventListener('touchstart', touchHandler); // remove old listener before retry
+          startRhythmPhase();
+        }
+      }, 3000);
+    }
+  }
+
+  draw();
 }

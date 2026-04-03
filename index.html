@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="version-tag">v1.1.6</div>
+<div id="version-tag">v1.2.0</div>
 
 <div id="entry-screen">
   <button id="entry-button">静寂に入る</button>
@@ -58,6 +58,14 @@
     <button class="phase-reset-button">EXIT</button>
   </div>
   <div id="breakout-phase" class="phase-container" style="display: none;">
+    <div id="breakout-status" class="status-text" style="position:absolute; top:12%; width:100%;">隔壁を破壊しなさい</div>
+    <canvas id="breakout-canvas"></canvas>
+    <button class="phase-skip-button">SKIP</button>
+    <button class="phase-reset-button">EXIT</button>
+  </div>
+  <div id="rhythm-phase" class="phase-container" style="display: none;">
+    <div id="rhythm-status" class="status-text" style="position:absolute; top:12%; width:100%;">法則に同調しなさい</div>
+    <canvas id="rhythm-canvas"></canvas>
     <button class="phase-skip-button">SKIP</button>
     <button class="phase-reset-button">EXIT</button>
   </div>
@@ -76,8 +84,9 @@
     <option value="hold">1. 長押し</option>
     <option value="gyro">2. ジャイロ</option>
     <option value="camera">3. カメラ</option>
-    <option value="ai">4. AI相談 (準備中)</option>
-    <option value="breakout">5. ブロック崩し (準備中)</option>
+    <option value="breakout">4. ブロック崩し</option>
+    <option value="rhythm">5. リズム同調</option>
+    <option value="ai">6. AI相談 (準備中)</option>
   </select>
   <div style="margin-top:25px; display:flex; gap:10px; justify-content:center;">
     <button id="debug-start-button" style="padding:10px 20px; font-size:0.8rem;">開始</button>
