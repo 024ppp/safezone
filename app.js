@@ -1,22 +1,24 @@
 let audioCtx, oscillator, gainNode;
 
 // 音声ファイルの定義
-const voiceBreathe = new Audio('breathe.m4a');
-const voicePenalty = new Audio('penalty.m4a');
-const voiceStand = new Audio('stand.m4a');
-const voicePosture = new Audio('posture.m4a');
-const voiceCamera = new Audio('camera.m4a');
-const voiceComplete = new Audio('complete.m4a');
+const voiceBreathe = new Audio('sounds/breathe.m4a');
+const voicePenalty = new Audio('sounds/penalty.m4a');
+const voiceStand = new Audio('sounds/stand.m4a');
+const voicePosture = new Audio('sounds/posture.m4a');
+const voiceCamera = new Audio('sounds/camera.m4a');
+const voiceComplete = new Audio('sounds/complete.m4a');
 
 // カメラ用色指定音声
 const colorVoices = {
-  red: new Audio('red.m4a'),
-  blue: new Audio('blue.m4a'),
-  green: new Audio('green.m4a')
+  red: new Audio('sounds/red.m4a'),
+  blue: new Audio('sounds/blue.m4a'),
+  green: new Audio('sounds/green.m4a')
 };
 
-const voiceBreakout = new Audio('breakout.m4a');
-const voiceRhythm = new Audio('rhythm.m4a');
+const voiceBreakout = new Audio('sounds/breakout.m4a');
+const voiceRhythm = new Audio('sounds/rhythm.m4a');
+const voicePenaltyBreakout = new Audio('sounds/penalty_breakout.m4a');
+const voicePenaltyRhythm = new Audio('sounds/penalty_rhythm.m4a');
 
 const allVoices = [
   voiceBreathe,
@@ -107,7 +109,7 @@ function initSystem(mode, startId) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    taskQueue = shuffled;
+    taskQueue = shuffled.slice(0, 3);
   } else if (mode === 'debug' && startId) {
     taskQueue = [startId];
   } else {
@@ -346,18 +348,30 @@ function startGyroPhase() {
 function handleOrientation(event) {
   if (currentPhase !== 2 || !isGyroActive) return;
 
+  let time = Date.now() / 1000;
+  let targetX = Math.cos(time * 1.5) * 40; 
+  let targetY = Math.sin(time * 1.5) * 40;
+
+  let targetEl = document.getElementById('level-target');
+  if (targetEl) targetEl.style.transform = `translate(calc(-50% + ${targetX}px), calc(-50% + ${targetY}px))`;
+
   let beta = event.beta || 0;
   let gamma = event.gamma || 0;
 
   let y = Math.min(Math.max(beta, -45), 45);
   let x = Math.min(Math.max(gamma, -45), 45);
-  document.getElementById('level-inner').style.transform = `translate(calc(-50% + ${(x/45)*80}px), calc(-50% + ${(y/45)*80}px))`;
+  
+  let playerX = (x/45)*80;
+  let playerY = (y/45)*80;
+  document.getElementById('level-inner').style.transform = `translate(calc(-50% + ${playerX}px), calc(-50% + ${playerY}px))`;
 
-  if (Math.abs(beta) < 6 && Math.abs(gamma) < 6) {
-    if (!isGyroLevel) {
-      isGyroLevel = true;
-      document.getElementById('level-outer').style.borderColor = '#88c0d0';
-    }
+  let dist = Math.hypot(targetX - playerX, targetY - playerY);
+
+  if (dist < 15) {
+    if (!isGyroLevel) isGyroLevel = true;
+    document.getElementById('level-outer').style.borderColor = 'var(--success-color)';
+  } else if (dist < 35) {
+    document.getElementById('level-outer').style.borderColor = '#c0b030';
   } else {
     if (isGyroLevel) {
       isGyroLevel = false;
@@ -407,6 +421,7 @@ function startCameraPhase() {
       setTimeout(() => { playVoice(colorVoices[targetColorType]); }, 3000);
       
       isCameraActive = true;
+      colorMatchFrames = 0;
       requestAnimationFrame(processVideoFrame);
     })
     .catch(err => {
@@ -448,7 +463,7 @@ function processVideoFrame() {
     const bAvg = bTotal / pixelCount;
 
     let isMatch = false;
-    const threshold = 60; 
+    const threshold = 40; 
 
     if (targetColorType === 'red') {
       isMatch = (rAvg > gAvg + threshold) && (rAvg > bAvg + threshold) && (rAvg > 100);
@@ -663,7 +678,7 @@ function startBreakoutPhase() {
       
       runNextTask();
     } else {
-      showPenalty('隔壁制御に失敗しました。<br>再構築します', voicePenalty);
+      showPenalty('隔壁制御に失敗しました。<br>再構築します', voicePenaltyBreakout);
       setTimeout(() => {
         if(currentPhase === 4) startBreakoutPhase(); // Retry
       }, 3000);
@@ -795,7 +810,7 @@ function startRhythmPhase() {
       window.removeEventListener('touchstart', touchHandler); // ensure cleaned up on next step
       runNextTask();
     } else {
-      showPenalty(errorMsg, voicePenalty);
+      showPenalty(errorMsg, voicePenaltyRhythm);
       setTimeout(() => {
         if(currentPhase === 5) {
           window.removeEventListener('touchstart', touchHandler); // remove old listener before retry
