@@ -2,7 +2,7 @@ let audioCtx, oscillator, gainNode;
 
 const voiceBreathe = new Audio('sounds/breathe.m4a');
 const voicePenalty = new Audio('sounds/penalty.m4a');
-const voiceStand = new Audio('sounds/gyro_start.m4a');
+const voiceStand = new Audio('sounds/gyro_track.m4a');
 const voicePosture = new Audio('sounds/posture.m4a');
 const voiceCamera = new Audio('sounds/camera.m4a');
 const voiceComplete = new Audio('sounds/complete.m4a');
@@ -51,6 +51,7 @@ let holdTimeRemaining = 30;
 // フェーズ2変数
 let gyroTimeRemaining = 10;
 let isGyroLevel = false, isGyroActive = false;
+let baseBeta = null, baseGamma = null;
 
 // フェーズ3変数
 let cameraStream = null;
@@ -320,6 +321,8 @@ function failHoldPhase() {
 function startGyroPhase() {
   currentPhase = 2;
   isHoldActive = false;
+  baseBeta = null;
+  baseGamma = null;
   document.getElementById('hold-phase').style.display = 'none';
   document.getElementById('gyro-phase').style.display = 'flex';
   document.body.style.backgroundColor = 'var(--bg-gyro)';
@@ -354,17 +357,28 @@ function handleOrientation(event) {
   let targetEl = document.getElementById('level-target');
   if (targetEl) targetEl.style.transform = `translate(calc(-50% + ${targetX}px), calc(-50% + ${targetY}px))`;
 
-  let beta = event.beta || 0;
-  let gamma = event.gamma || 0;
+  let rawBeta = event.beta || 0;
+  let rawGamma = event.gamma || 0;
 
-  // 直立状態（画面を見ている状態）は beta が約90度
-  let centeredBeta = beta - 90;
+  if (baseBeta === null) {
+    baseBeta = rawBeta;
+    baseGamma = rawGamma;
+  }
+
+  let deltaBeta = rawBeta - baseBeta;
+  let deltaGamma = rawGamma - baseGamma;
+
+  // Handle wraparounds
+  if (deltaBeta > 180) deltaBeta -= 360;
+  if (deltaBeta < -180) deltaBeta += 360;
+  if (deltaGamma > 90) deltaGamma -= 180;
+  if (deltaGamma < -90) deltaGamma += 180;
+
+  let y = Math.min(Math.max(deltaBeta, -30), 30);
+  let x = Math.min(Math.max(deltaGamma, -30), 30);
   
-  let y = Math.min(Math.max(centeredBeta, -45), 45);
-  let x = Math.min(Math.max(gamma, -45), 45);
-  
-  let playerX = (x/45)*80;
-  let playerY = (y/45)*80;
+  let playerX = (x/30)*80;
+  let playerY = (y/30)*80;
   document.getElementById('level-inner').style.transform = `translate(calc(-50% + ${playerX}px), calc(-50% + ${playerY}px))`;
 
   let dist = Math.hypot(targetX - playerX, targetY - playerY);
@@ -389,6 +403,8 @@ function failGyroPhase() {
   updateTimerDisplay('gyro-timer', gyroTimeRemaining);
   showPenalty('同期が外れました。<br>姿勢を維持しなさい', voicePosture);
   setTimeout(() => {
+    baseBeta = null;
+    baseGamma = null;
     isGyroActive = true;
     document.getElementById('level-outer').style.borderColor = 'var(--accent-color)';
   }, 3000);
