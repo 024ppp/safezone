@@ -69,13 +69,25 @@ document.getElementById('debug-start-button').addEventListener('click', () => {
   initSystem('debug', selected);
 });
 
-// EXIT ボタンで即リセット
-document.addEventListener('click', (e) => {
+// リセットボタン（EXITおよび完了画面の静寂に戻る）のグローバルクリック監視
+document.body.addEventListener('click', (e) => {
   const target = e.target;
-  if (target && target.classList && target.classList.contains('phase-reset-button')) {
+  if (!target || !target.classList) return;
+  if (target.classList.contains('phase-reset-button') || target.id === 'restart-button') {
     location.reload();
+    return;
+  }
+
+  if (target.classList.contains('phase-skip-button')) {
+    // タイマーとカメラを確実に止めてから次へ進む
+    clearInterval(timerInterval);
+    if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+    runNextTask();
   }
 });
+
+// AI / ブレイクアウトの待機（プレースホルダ）用
+let pendingTaskTimeout = null;
 
 function initSystem(mode, startId) {
   currentMode = mode;
@@ -129,6 +141,21 @@ function initSystem(mode, startId) {
 }
 
 function runNextTask() {
+  // 念のため古い処理を止める（SKIP / 自動遷移 / タスク切替の競合対策）
+  clearInterval(timerInterval);
+  timerInterval = null;
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+  isCameraActive = false;
+  isGyroActive = false;
+  isHoldActive = false;
+  if (pendingTaskTimeout) {
+    clearTimeout(pendingTaskTimeout);
+    pendingTaskTimeout = null;
+  }
+
   const nextId = taskQueue.shift();
 
   // すべてのフェーズコンテナを非表示
@@ -147,7 +174,7 @@ function runNextTask() {
 
   if (nextId === 'hold') {
     document.getElementById('hold-phase').style.display = 'block';
-    startHoldPhase();
+    prepareHoldPhase();
   } else if (nextId === 'gyro') {
     document.getElementById('gyro-phase').style.display = 'flex';
     startGyroPhase();
@@ -213,6 +240,18 @@ function handleTouch(e) {
   } else {
     if (isHoldActive) failHoldPhase();
   }
+}
+
+function prepareHoldPhase() {
+  isHoldActive = false;
+  holdTimeRemaining = 30;
+  document.getElementById('timer').style.opacity = '0';
+  document.getElementById('breathing-circle').style.opacity = '0';
+  document.getElementById('breathing-circle').classList.remove('is-breathing');
+  document.body.style.backgroundColor = 'var(--bg-idle)';
+  document.getElementById('status-text').innerHTML = '左右を長押しし、<br>静寂を維持しなさい';
+  updateTimerDisplay('timer', holdTimeRemaining);
+  setupTouchEvents();
 }
 
 function startHoldPhase() {
@@ -451,23 +490,19 @@ function finishSequence() {
     <button id="restart-button">静寂に戻る</button>
   `;
   completePhase.style.display = 'flex';
-
-  document.getElementById('restart-button').addEventListener('click', () => {
-    location.reload();
-  });
   
   gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 2.0);
   playVoice(voiceComplete);
 }
 
 function startAiPhase() {
-  setTimeout(() => {
+  pendingTaskTimeout = setTimeout(() => {
     runNextTask();
   }, 3000);
 }
 
 function startBreakoutPhase() {
-  setTimeout(() => {
+  pendingTaskTimeout = setTimeout(() => {
     runNextTask();
   }, 3000);
 }

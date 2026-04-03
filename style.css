@@ -198,3 +198,19 @@ body, html {
   border-radius: 4px;
   pointer-events: auto;
 }
+
+.phase-skip-button {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 10001;
+  background: transparent;
+  border: 1px solid rgba(200, 209, 224, 0.2);
+  color: rgba(200, 209, 224, 0.4);
+  font-family: "SF Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  padding: 5px 10px;
+  border-radius: 4px;
+  pointer-events: auto;
+}
