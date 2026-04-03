@@ -14,7 +14,7 @@
 </head>
 
 <body>
-  <div id="version-tag">v1.3.2</div>
+  <div id="version-tag">v1.3.3</div>
 
   <div id="entry-screen">
     <button id="entry-button">静寂に入る</button>
@@ -35,7 +35,7 @@
     </div>
 
     <div id="gyro-phase" class="phase-container" style="display: none;">
-      <div id="gyro-status" class="status-text">現在姿勢を維持し<br>座標を同期しなさい</div>
+      <div id="gyro-status" class="status-text">端末を水平に保ち<br>座標を同期しなさい</div>
       <div id="level-outer">
         <div id="level-target"></div>
         <div id="level-inner"></div>
@@ -81,6 +81,10 @@
 
   <div id="overlay-penalty">
     <div id="penalty-text" class="status-text"></div>
+  </div>
+
+  <div id="overlay-clear">
+    <div id="clear-text" class="status-text">PHASE CLEAR</div>
   </div>
 
   <dialog id="debug-dialog">

@@ -2,7 +2,7 @@ let audioCtx, oscillator, gainNode;
 
 const voiceBreathe = new Audio('sounds/breathe.m4a');
 const voicePenalty = new Audio('sounds/penalty.m4a');
-const voiceStand = new Audio('sounds/gyro_track.m4a');
+const voiceStand = new Audio('sounds/gyro_stand.m4a');
 const voicePosture = new Audio('sounds/posture.m4a');
 const voiceCamera = new Audio('sounds/camera.m4a');
 const voiceComplete = new Audio('sounds/complete.m4a');
@@ -232,6 +232,44 @@ function showPenalty(text, voice) {
   setTimeout(() => { overlay.style.display = 'none'; }, 3000);
 }
 
+function completePhase() {
+  const overlay = document.getElementById('overlay-clear');
+  overlay.style.display = 'flex';
+  
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  let gn = audioCtx.createGain();
+  gn.connect(audioCtx.destination);
+  gn.gain.setValueAtTime(0.05, audioCtx.currentTime);
+  
+  [880, 1108, 1318, 1760].forEach((freq, i) => { 
+    let osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    osc.connect(gn);
+    osc.start(audioCtx.currentTime + i * 0.1);
+    osc.stop(audioCtx.currentTime + i * 0.1 + 0.1);
+  });
+  
+  // 花火エフェクト表示
+  for(let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.classList.add('firework-particle');
+    p.style.left = '50%';
+    p.style.top = '50%';
+    let angle = Math.random() * Math.PI * 2;
+    let dist = 50 + Math.random() * 100;
+    p.style.setProperty('--tx', `${Math.cos(angle)*dist}px`);
+    p.style.setProperty('--ty', `${Math.sin(angle)*dist}px`);
+    overlay.appendChild(p);
+    setTimeout(() => p.remove(), 800);
+  }
+
+  setTimeout(() => {
+    overlay.style.display = 'none';
+    runNextTask();
+  }, 1500);
+}
+
 // ==========================================
 // フェーズ1：長押し
 // ==========================================
@@ -292,7 +330,7 @@ function startHoldPhase() {
     updateTimerDisplay('timer', holdTimeRemaining);
     if (holdTimeRemaining <= 0) {
       clearInterval(timerInterval);
-      runNextTask();
+      completePhase();
     }
   }, 1000);
 }
@@ -341,7 +379,7 @@ function startGyroPhase() {
       updateTimerDisplay('gyro-timer', gyroTimeRemaining);
       if (gyroTimeRemaining <= 0) {
         clearInterval(timerInterval);
-        runNextTask();
+        completePhase();
       }
     }
   }, 1000);
@@ -360,33 +398,21 @@ function handleOrientation(event) {
   let rawBeta = event.beta || 0;
   let rawGamma = event.gamma || 0;
 
-  if (baseBeta === null) {
-    baseBeta = rawBeta;
-    baseGamma = rawGamma;
-  }
-
-  let deltaBeta = rawBeta - baseBeta;
-  let deltaGamma = rawGamma - baseGamma;
-
-  // Handle wraparounds
-  if (deltaBeta > 180) deltaBeta -= 360;
-  if (deltaBeta < -180) deltaBeta += 360;
-  if (deltaGamma > 90) deltaGamma -= 180;
-  if (deltaGamma < -90) deltaGamma += 180;
-
-  let y = Math.min(Math.max(deltaBeta, -30), 30);
-  let x = Math.min(Math.max(deltaGamma, -30), 30);
+  // Horizontal mapping
+  let y = Math.min(Math.max(rawBeta, -45), 45);
+  let x = Math.min(Math.max(rawGamma, -45), 45);
   
-  let playerX = (x/30)*80;
-  let playerY = (y/30)*80;
+  // Make it move slightly less far for easier control
+  let playerX = (x/45)*50;
+  let playerY = (y/45)*50;
   document.getElementById('level-inner').style.transform = `translate(calc(-50% + ${playerX}px), calc(-50% + ${playerY}px))`;
 
   let dist = Math.hypot(targetX - playerX, targetY - playerY);
 
-  if (dist < 15) {
+  if (dist < 25) {
     if (!isGyroLevel) isGyroLevel = true;
     document.getElementById('level-outer').style.borderColor = 'var(--success-color)';
-  } else if (dist < 35) {
+  } else if (dist < 50) {
     document.getElementById('level-outer').style.borderColor = '#c0b030';
   } else {
     if (isGyroLevel) {
@@ -510,7 +536,7 @@ function processVideoFrame() {
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
       }
-      runNextTask();
+      completePhase();
       return;
     }
   }
@@ -683,18 +709,10 @@ function startBreakoutPhase() {
   }
 
   function finishBreakout(success) {
+    cancelAnimationFrame(breakoutReqId);
     window.removeEventListener('touchmove', touchMoveHandler);
     if(success) {
-      // 成功音
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      let osc = audioCtx.createOscillator();
-      let gn = audioCtx.createGain();
-      osc.connect(gn); gn.connect(audioCtx.destination);
-      osc.frequency.value = 800; gn.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gn.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-      osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-      
-      runNextTask();
+      completePhase();
     } else {
       showPenalty('隔壁制御に失敗しました。<br>再構築します', voicePenaltyBreakout);
       setTimeout(() => {
@@ -817,16 +835,10 @@ function startRhythmPhase() {
   }
 
   function finishRhythm(success, errorMsg) {
+    cancelAnimationFrame(rhythmReqId);
+    window.removeEventListener('touchstart', touchHandler);
     if(success) {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      let osc = audioCtx.createOscillator();
-      let gn = audioCtx.createGain();
-      osc.connect(gn); gn.connect(audioCtx.destination);
-      osc.frequency.value = 800; gn.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gn.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-      osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-      window.removeEventListener('touchstart', touchHandler); // ensure cleaned up on next step
-      runNextTask();
+      completePhase();
     } else {
       showPenalty(errorMsg, voicePenaltyRhythm);
       setTimeout(() => {
