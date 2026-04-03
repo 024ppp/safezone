@@ -70,21 +70,18 @@ document.getElementById('debug-start-button').addEventListener('click', () => {
 });
 
 // リセットボタン（EXITおよび完了画面の静寂に戻る）のグローバルクリック監視
-document.body.addEventListener('click', (e) => {
-  const target = e.target;
-  if (!target || !target.classList) return;
-  if (target.classList.contains('phase-reset-button') || target.id === 'restart-button') {
+document.addEventListener('touchstart', (e) => {
+  if (e.target.classList.contains('phase-reset-button') || e.target.id === 'restart-button') {
     location.reload();
-    return;
   }
-
-  if (target.classList.contains('phase-skip-button')) {
-    // タイマーとカメラを確実に止めてから次へ進む
-    clearInterval(timerInterval);
-    if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+  if (e.target.classList.contains('phase-skip-button')) {
+    if (typeof timerInterval !== 'undefined') clearInterval(timerInterval);
+    if (typeof cameraStream !== 'undefined' && cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+    }
     runNextTask();
   }
-});
+}, { passive: false });
 
 // AI / ブレイクアウトの待機（プレースホルダ）用
 let pendingTaskTimeout = null;
@@ -399,7 +396,7 @@ function startCameraPhase() {
 }
 
 function processVideoFrame() {
-  if (currentPhase !== 3 || !isCameraActive) return;
+  if (!isCameraActive) return;
 
   const video = document.getElementById('camera-stream');
   const canvas = document.getElementById('camera-canvas');
@@ -411,7 +408,6 @@ function processVideoFrame() {
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // 中央領域のピクセルデータを取得（中央の50x50ピクセル）
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const scanSize = 50;
@@ -431,16 +427,15 @@ function processVideoFrame() {
     const gAvg = gTotal / pixelCount;
     const bAvg = bTotal / pixelCount;
 
-    // 色判定ロジック
     let isMatch = false;
-    const threshold = 60; // 色の優位性のしきい値
+    const threshold = 60; 
 
     if (targetColorType === 'red') {
-      isMatch = (rAvg > gAvg + threshold) && (rAvg > bAvg + threshold) && (rAvg > 130);
+      isMatch = (rAvg > gAvg + threshold) && (rAvg > bAvg + threshold) && (rAvg > 100);
     } else if (targetColorType === 'blue') {
-      isMatch = (bAvg > rAvg + threshold) && (bAvg > gAvg + threshold) && (bAvg > 120);
+      isMatch = (bAvg > rAvg + threshold) && (bAvg > gAvg + threshold) && (bAvg > 80);
     } else if (targetColorType === 'green') {
-      isMatch = (gAvg > rAvg + threshold) && (gAvg > bAvg + threshold) && (gAvg > 120);
+      isMatch = (gAvg > rAvg + threshold) && (gAvg > bAvg + threshold) && (gAvg > 80);
     }
 
     if (isMatch) {
@@ -448,16 +443,20 @@ function processVideoFrame() {
       reticle.style.borderColor = 'var(--success-color)';
       reticle.style.transform = 'translate(-50%, -50%) scale(1.1)';
     } else {
-      colorMatchFrames = Math.max(0, colorMatchFrames - 5); // 外れたらゲージ減少
-      reticle.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+      colorMatchFrames = Math.max(0, colorMatchFrames - 5);
+      reticle.style.borderColor = 'rgba(255, 255, 255, 0.4)';
       reticle.style.transform = 'translate(-50%, -50%) scale(1)';
     }
 
-    // プログレスバーの更新
     const progressPercent = Math.min(100, (colorMatchFrames / REQUIRED_MATCH_FRAMES) * 100);
-    document.getElementById('camera-progress-inner').style.width = `${progressPercent}%`;
+    const progressBar = document.getElementById('camera-progress-inner');
+    if (progressBar) progressBar.style.width = `${progressPercent}%`;
 
     if (colorMatchFrames >= REQUIRED_MATCH_FRAMES) {
+      isCameraActive = false;
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
       runNextTask();
       return;
     }
