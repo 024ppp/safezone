@@ -1,9 +1,8 @@
 let audioCtx, oscillator, gainNode;
 
-// 音声ファイルの定義
 const voiceBreathe = new Audio('sounds/breathe.m4a');
 const voicePenalty = new Audio('sounds/penalty.m4a');
-const voiceStand = new Audio('sounds/stand.m4a');
+const voiceStand = new Audio('sounds/gyro_start.m4a');
 const voicePosture = new Audio('sounds/posture.m4a');
 const voiceCamera = new Audio('sounds/camera.m4a');
 const voiceComplete = new Audio('sounds/complete.m4a');
@@ -50,7 +49,7 @@ let leftTouched = false, rightTouched = false, isHoldActive = false;
 let holdTimeRemaining = 30;
 
 // フェーズ2変数
-let gyroTimeRemaining = 20;
+let gyroTimeRemaining = 10;
 let isGyroLevel = false, isGyroActive = false;
 
 // フェーズ3変数
@@ -358,7 +357,10 @@ function handleOrientation(event) {
   let beta = event.beta || 0;
   let gamma = event.gamma || 0;
 
-  let y = Math.min(Math.max(beta, -45), 45);
+  // 直立状態（画面を見ている状態）は beta が約90度
+  let centeredBeta = beta - 90;
+  
+  let y = Math.min(Math.max(centeredBeta, -45), 45);
   let x = Math.min(Math.max(gamma, -45), 45);
   
   let playerX = (x/45)*80;
@@ -383,9 +385,9 @@ function handleOrientation(event) {
 
 function failGyroPhase() {
   isGyroActive = false;
-  gyroTimeRemaining = 20;
+  gyroTimeRemaining = 10;
   updateTimerDisplay('gyro-timer', gyroTimeRemaining);
-  showPenalty('姿勢が崩れました。<br>水平を維持しなさい', voicePosture);
+  showPenalty('同期が外れました。<br>姿勢を維持しなさい', voicePosture);
   setTimeout(() => {
     isGyroActive = true;
     document.getElementById('level-outer').style.borderColor = 'var(--accent-color)';
